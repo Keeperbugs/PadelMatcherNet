@@ -1,0 +1,285 @@
+@page "/database-test"
+@using PadelMatcherNet.Data
+@using PadelMatcherNet.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Data
+@inject TournamentDbContext DbContext
+
+<PageTitle>Database Test</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Test Connessione Database</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+        <MudText>Caricamento dati dal database...</MudText>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error">
+            <strong>Errore di connessione:</strong> @errorMessage
+        </MudAlert>
+        
+        @if (!string.IsNullOrEmpty(detailedError))
+        {
+            <MudExpansionPanels Class="mt-4">
+                <MudExpansionPanel Text="Dettagli errore">
+                    <pre style="white-space: pre-wrap; font-size: 12px;">@detailedError</pre>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Success">
+            <strong>Connessione riuscita!</strong> Database caricato correttamente.
+        </MudAlert>
+        
+        <MudGrid Class="mt-4">
+            <!-- Players Count -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">Giocatori</MudText>
+                        <MudText Typo="Typo.h4" Color="Color.Primary">@playersCount</MudText>
+                        <MudText Typo="Typo.body2">totali nel database</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <!-- Tournaments Count -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">Tornei</MudText>
+                        <MudText Typo="Typo.h4" Color="Color.Secondary">@tournamentsCount</MudText>
+                        <MudText Typo="Typo.body2">totali nel database</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <!-- Matches Count -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">Partite</MudText>
+                        <MudText Typo="Typo.h4" Color="Color.Info">@matchesCount</MudText>
+                        <MudText Typo="Typo.body2">totali nel database</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <!-- Settings -->
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">Impostazioni</MudText>
+                        <MudText Typo="Typo.h4" Color="Color.Warning">@(hasSettings ? "✓" : "✗")</MudText>
+                        <MudText Typo="Typo.body2">configurate</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+        
+        <!-- Sample Players -->
+        @if (samplePlayers.Any())
+        {
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Primi 5 Giocatori</MudText>
+            <MudTable Items="samplePlayers" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Nome</MudTh>
+                    <MudTh>Cognome</MudTh>
+                    <MudTh>Nickname</MudTh>
+                    <MudTh>Fascia</MudTh>
+                    <MudTh>Punti</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nome">@context.Name</MudTd>
+                    <MudTd DataLabel="Cognome">@context.Surname</MudTd>
+                    <MudTd DataLabel="Nickname">@(context.Nickname ?? "-")</MudTd>
+                    <MudTd DataLabel="Fascia">@context.SkillLevel</MudTd>
+                    <MudTd DataLabel="Punti">@context.Points</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        
+        <!-- Sample Tournaments -->
+        @if (sampleTournaments.Any())
+        {
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Tornei</MudText>
+            <MudTable Items="sampleTournaments" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Nome</MudTh>
+                    <MudTh>Stato</MudTh>
+                    <MudTh>Giocatori</MudTh>
+                    <MudTh>Round Corrente</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nome">@context.Name</MudTd>
+                    <MudTd DataLabel="Stato">
+                        <MudChip T="string" Color="GetTournamentStatusColor(context.Status)" Size="Size.Small">
+                            @context.Status
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Giocatori">@context.CurrentPlayerCount/@context.MaxPlayers</MudTd>
+                    <MudTd DataLabel="Round">@context.CurrentRound</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        
+        <!-- Database Tables Check -->
+        <MudText Typo="Typo.h6" Class="mt-6 mb-3">Verifica Struttura Database</MudText>
+        <MudGrid>
+            @foreach (var table in tableChecks)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudText Typo="Typo.subtitle1">@table.TableName</MudText>
+                            <MudText Color="@(table.Exists ? Color.Success : Color.Error)">
+                                @(table.Exists ? "✓ Trovata" : "✗ Non trovata")
+                            </MudText>
+                            @if (!string.IsNullOrEmpty(table.Error))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Error">@table.Error</MudText>
+                            }
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RefreshData" Class="mt-4">
+        Ricarica Dati
+    </MudButton>
+</MudContainer>
+
+@code {
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+    private string detailedError = string.Empty;
+    
+    private int playersCount = 0;
+    private int tournamentsCount = 0;
+    private int matchesCount = 0;
+    private bool hasSettings = false;
+    
+    private List<Player> samplePlayers = new();
+    private List<Tournament> sampleTournaments = new();
+    
+    private List<TableCheck> tableChecks = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDatabaseData();
+    }
+    
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        await LoadDatabaseData();
+    }
+    
+    private async Task LoadDatabaseData()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            detailedError = string.Empty;
+            
+            // Test connessione base
+            await DbContext.Database.OpenConnectionAsync();
+            await DbContext.Database.CloseConnectionAsync();
+            
+            // Verifica esistenza tabelle
+            await CheckTables();
+            
+            // Carica conteggi
+            playersCount = await DbContext.Players.CountAsync();
+            tournamentsCount = await DbContext.Tournaments.CountAsync();
+            matchesCount = await DbContext.Matches.CountAsync();
+            
+            var settings = await DbContext.AppSettings.FirstOrDefaultAsync();
+            hasSettings = settings != null;
+            
+            // Carica dati di esempio
+            samplePlayers = await DbContext.Players
+                .OrderBy(p => p.Name)
+                .Take(5)
+                .ToListAsync();
+                
+            sampleTournaments = await DbContext.Tournaments
+                .OrderByDescending(t => t.CreatedAt)
+                .Take(5)
+                .ToListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            detailedError = ex.ToString();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task CheckTables()
+    {
+        tableChecks.Clear();
+        
+        var tables = new[]
+        {
+            "players",
+            "tournaments", 
+            "matches",
+            "player_stats",
+            "tournament_settings"
+        };
+        
+        foreach (var tableName in tables)
+        {
+            var check = new TableCheck { TableName = tableName };
+            try
+            {
+                using var connection = DbContext.Database.GetDbConnection();
+                await connection.OpenAsync();
+                
+                using var command = connection.CreateCommand();
+                command.CommandText = $"SELECT name FROM sqlite_master WHERE type='table' AND name='{tableName}'";
+                var result = await command.ExecuteScalarAsync();
+                check.Exists = result != null;
+                
+                await connection.CloseAsync();
+            }
+            catch (Exception ex)
+            {
+                check.Exists = false;
+                check.Error = ex.Message;
+            }
+            tableChecks.Add(check);
+        }
+    }
+    
+    private Color GetTournamentStatusColor(TournamentStatus status)
+    {
+        return status switch
+        {
+            TournamentStatus.Active => Color.Success,
+            TournamentStatus.Completed => Color.Info,
+            TournamentStatus.Draft => Color.Warning,
+            _ => Color.Default
+        };
+    }
+    
+    private class TableCheck
+    {
+        public string TableName { get; set; } = string.Empty;
+        public bool Exists { get; set; }
+        public string Error { get; set; } = string.Empty;
+    }
+}

@@ -27,10 +27,15 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
+// Configurazione database per Identity
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// Configurazione database per Tournament (stesso database, contesti separati)
+builder.Services.AddDbContext<TournamentDbContext>(options =>
+    options.UseSqlite(connectionString));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -54,7 +59,6 @@ else
 }
 
 app.UseHttpsRedirection();
-
 
 app.UseAntiforgery();
 

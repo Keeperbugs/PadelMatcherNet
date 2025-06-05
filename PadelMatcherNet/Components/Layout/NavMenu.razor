@@ -8,6 +8,10 @@
     
     <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
 
+    <!-- Test Database -->
+    <MudNavLink Href="database-test" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Storage">Database Test</MudNavLink>
+    <MudNavLink Href="database-explorer" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search">Database Explorer</MudNavLink>
+
     <MudNavLink Href="auth" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lock">Auth Required</MudNavLink>
     <AuthorizeView>
         <Authorized>
@@ -26,7 +30,6 @@
         </NotAuthorized>
     </AuthorizeView>
 </MudNavMenu>
-
 
 @code {
     private string? currentUrl;
@@ -48,4 +51,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

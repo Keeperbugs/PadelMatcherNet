@@ -1,0 +1,246 @@
+@page "/database-explorer"
+@using Microsoft.EntityFrameworkCore
+@using PadelMatcherNet.Data
+@using System.Data
+@inject TournamentDbContext DbContext
+
+<PageTitle>Database Explorer</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Esplorazione Database Esistente</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+        <MudText>Analizzando struttura database...</MudText>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error">
+            <strong>Errore:</strong> @errorMessage
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">
+            Database trovato! Ecco la struttura esistente:
+        </MudAlert>
+        
+        <!-- Tabelle esistenti -->
+        <MudText Typo="Typo.h6" Class="mt-4 mb-3">Tabelle nel Database</MudText>
+        @if (tables.Any())
+        {
+            <MudTable Items="tables" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Nome Tabella</MudTh>
+                    <MudTh>Tipo</MudTh>
+                    <MudTh>Azioni</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nome">@context.Name</MudTd>
+                    <MudTd DataLabel="Tipo">@context.Type</MudTd>
+                    <MudTd DataLabel="Azioni">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" 
+                                   OnClick="() => ExploreTable(context.Name)">
+                            Esplora
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">Nessuna tabella trovata nel database.</MudAlert>
+        }
+        
+        <!-- Dettagli tabella selezionata -->
+        @if (!string.IsNullOrEmpty(selectedTable) && tableColumns.Any())
+        {
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Struttura Tabella: @selectedTable</MudText>
+            <MudTable Items="tableColumns" Dense="true">
+                <HeaderContent>
+                    <MudTh>Colonna</MudTh>
+                    <MudTh>Tipo</MudTh>
+                    <MudTh>NOT NULL</MudTh>
+                    <MudTh>Default</MudTh>
+                    <MudTh>Primary Key</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Colonna">@context.Name</MudTd>
+                    <MudTd DataLabel="Tipo">@context.Type</MudTd>
+                    <MudTd DataLabel="NOT NULL">@(context.NotNull ? "✓" : "")</MudTd>
+                    <MudTd DataLabel="Default">@(context.DefaultValue ?? "-")</MudTd>
+                    <MudTd DataLabel="Primary Key">@(context.IsPrimaryKey ? "✓" : "")</MudTd>
+                </RowTemplate>
+            </MudTable>
+            
+            <!-- Dati di esempio dalla tabella -->
+            @if (sampleData.Any())
+            {
+                <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2">Primi 5 record di esempio:</MudText>
+                <MudTable Items="sampleData" Dense="true" Hover="true">
+                    <HeaderContent>
+                        @foreach (var column in tableColumns.Take(5))
+                        {
+                            <MudTh>@column.Name</MudTh>
+                        }
+                        @if (tableColumns.Count() > 5)
+                        {
+                            <MudTh>... (+@(tableColumns.Count() - 5))</MudTh>
+                        }
+                    </HeaderContent>
+                    <RowTemplate>
+                        @for (int i = 0; i < Math.Min(5, tableColumns.Count()); i++)
+                        {
+                            var columnName = tableColumns.ElementAt(i).Name;
+                            <MudTd DataLabel="@columnName">
+                                @(context.ContainsKey(columnName) ? context[columnName]?.ToString() ?? "NULL" : "N/A")
+                            </MudTd>
+                        }
+                        @if (tableColumns.Count() > 5)
+                        {
+                            <MudTd>...</MudTd>
+                        }
+                    </RowTemplate>
+                </MudTable>
+            }
+        }
+    }
+    
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RefreshData" Class="mt-4">
+        Ricarica
+    </MudButton>
+</MudContainer>
+
+@code {
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+    private string selectedTable = string.Empty;
+    
+    private List<DatabaseTable> tables = new();
+    private List<TableColumn> tableColumns = new();
+    private List<Dictionary<string, object?>> sampleData = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDatabaseStructure();
+    }
+    
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        selectedTable = string.Empty;
+        tableColumns.Clear();
+        sampleData.Clear();
+        StateHasChanged();
+        await LoadDatabaseStructure();
+    }
+    
+    private async Task LoadDatabaseStructure()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            tables.Clear();
+            
+            using var connection = DbContext.Database.GetDbConnection();
+            await connection.OpenAsync();
+            
+            // Ottieni lista delle tabelle
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') ORDER BY name";
+            
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                tables.Add(new DatabaseTable
+                {
+                    Name = reader.GetString("name"),
+                    Type = reader.GetString("type")
+                });
+            }
+            
+            await connection.CloseAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task ExploreTable(string tableName)
+    {
+        try
+        {
+            selectedTable = tableName;
+            tableColumns.Clear();
+            sampleData.Clear();
+            
+            using var connection = DbContext.Database.GetDbConnection();
+            await connection.OpenAsync();
+            
+            // Ottieni struttura della tabella
+            using var pragmaCommand = connection.CreateCommand();
+            pragmaCommand.CommandText = $"PRAGMA table_info({tableName})";
+            
+            using var pragmaReader = await pragmaCommand.ExecuteReaderAsync();
+            while (await pragmaReader.ReadAsync())
+            {
+                tableColumns.Add(new TableColumn
+                {
+                    Name = pragmaReader.GetString("name"),
+                    Type = pragmaReader.GetString("type"),
+                    NotNull = pragmaReader.GetBoolean("notnull"),
+                    DefaultValue = pragmaReader.IsDBNull("dflt_value") ? null : pragmaReader.GetString("dflt_value"),
+                    IsPrimaryKey = pragmaReader.GetBoolean("pk")
+                });
+            }
+            pragmaReader.Close();
+            
+            // Ottieni dati di esempio
+            using var dataCommand = connection.CreateCommand();
+            dataCommand.CommandText = $"SELECT * FROM {tableName} LIMIT 5";
+            
+            using var dataReader = await dataCommand.ExecuteReaderAsync();
+            while (await dataReader.ReadAsync())
+            {
+                var row = new Dictionary<string, object?>();
+                for (int i = 0; i < dataReader.FieldCount; i++)
+                {
+                    var fieldName = dataReader.GetName(i);
+                    var fieldValue = dataReader.IsDBNull(i) ? null : dataReader.GetValue(i);
+                    row[fieldName] = fieldValue;
+                }
+                sampleData.Add(row);
+            }
+            
+            await connection.CloseAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Errore nell'esplorare la tabella {tableName}: {ex.Message}";
+        }
+        
+        StateHasChanged();
+    }
+    
+    private class DatabaseTable
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+    }
+    
+    private class TableColumn
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public bool NotNull { get; set; }
+        public string? DefaultValue { get; set; }
+        public bool IsPrimaryKey { get; set; }
+    }
+}
