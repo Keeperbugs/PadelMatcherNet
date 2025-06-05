@@ -37,6 +37,14 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDbContext<TournamentDbContext>(options =>
     options.UseSqlite(connectionString));
 
+// Registrazione servizi personalizzati
+builder.Services.AddScoped<PadelMatcherNet.Services.ISettingsService, PadelMatcherNet.Services.SettingsService>();
+builder.Services.AddScoped<PadelMatcherNet.Services.IPlayerService, PadelMatcherNet.Services.PlayerService>();
+builder.Services.AddScoped<PadelMatcherNet.Services.ITournamentService, PadelMatcherNet.Services.TournamentService>();
+builder.Services.AddScoped<PadelMatcherNet.Services.IMatchService, PadelMatcherNet.Services.MatchService>();
+builder.Services.AddScoped<PadelMatcherNet.Services.IStatsService, PadelMatcherNet.Services.StatsService>();
+builder.Services.AddScoped<PadelMatcherNet.Services.ICleanupService, PadelMatcherNet.Services.CleanupService>();
+
 builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()

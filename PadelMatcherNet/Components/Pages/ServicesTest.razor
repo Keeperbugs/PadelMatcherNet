@@ -1,0 +1,547 @@
+@page "/services-test"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@inject ISettingsService SettingsService
+@inject IPlayerService PlayerService
+@inject ITournamentService TournamentService
+@inject IMatchService MatchService
+@inject IStatsService StatsService
+@inject ICleanupService CleanupService
+@inject IDialogService DialogService
+
+<PageTitle>Test Servizi</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Test Servizi Padel</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+        <MudText>Eseguendo test dei servizi...</MudText>
+    }
+    else
+    {
+        <MudGrid>
+            <!-- Test Settings Service -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Settings Service</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (settings != null)
+                        {
+                            <MudText><strong>Dark Mode:</strong> @settings.DarkMode</MudText>
+                            <MudText><strong>Strategia:</strong> @settings.PairingStrategy</MudText>
+                            <MudText><strong>Formato:</strong> @settings.MatchFormat</MudText>
+                            <MudText><strong>Punti Vittoria:</strong> @settings.PointsWin</MudText>
+                            <MudText><strong>Torneo Corrente:</strong> @(settings.CurrentTournamentId ?? "Nessuno")</MudText>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Error">Errore nel caricamento impostazioni</MudAlert>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="TestToggleDarkMode">
+                            Toggle Dark Mode
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <!-- Test Player Service -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Player Service</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText><strong>Giocatori totali:</strong> @players.Count</MudText>
+                        @if (players.Any())
+                        {
+                            <MudText Class="mt-2"><strong>Ultimi giocatori:</strong></MudText>
+                            @foreach (var player in players.Take(3))
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="ma-1">
+                                    @player.DisplayName (@player.SkillLevel)
+                                </MudChip>
+                            }
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="TestCreatePlayer">
+                            Crea Giocatore Test
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <!-- Test Tournament Service -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Tournament Service</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText><strong>Tornei totali:</strong> @tournaments.Count</MudText>
+                        @if (tournaments.Any())
+                        {
+                            <MudText Class="mt-2"><strong>Tornei:</strong></MudText>
+                            @foreach (var tournament in tournaments.Take(3))
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="ma-1" Color="GetTournamentColor(tournament.Status)">
+                                    @tournament.Name (@tournament.Status)
+                                </MudChip>
+                            }
+                        }
+                        @if (currentTournament != null)
+                        {
+                            <MudText Class="mt-2"><strong>Torneo Corrente:</strong> @currentTournament.Name</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="TestCreateTournament">
+                            Crea Torneo Test
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <!-- Test Match Service -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Match Service</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText><strong>Partite totali:</strong> @totalMatches</MudText>
+                        @if (currentTournament != null)
+                        {
+                            <MudText><strong>Partite torneo corrente:</strong> @currentTournamentMatches.Count</MudText>
+                            <MudText><strong>Round corrente:</strong> @currentTournament.CurrentRound</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="TestGenerateMatches" 
+                                   Disabled="currentTournament == null || !CanGenerateMatches()">
+                            Genera Partite Test
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <!-- Test Stats Service -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Stats Service</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText><strong>Statistiche generali:</strong> @overallStats.Count giocatori</MudText>
+                        @if (currentTournament != null)
+                        {
+                            <MudText><strong>Statistiche torneo:</strong> @tournamentStats.Count giocatori</MudText>
+                        }
+                        @if (overallStats.Any())
+                        {
+                            var topPlayer = overallStats.First();
+                            <MudText Class="mt-2"><strong>Leader:</strong> @topPlayer.Player?.DisplayName (@topPlayer.Points pt)</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="TestCalculateStats"
+                                   Disabled="currentTournament == null">
+                            Calcola Statistiche
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+
+            <!-- Cleanup Operations -->
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Pulizia Database</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (cleanupResult != null)
+                        {
+                            <MudText><strong>Giocatori Test:</strong> @cleanupResult.TestPlayers / @cleanupResult.TotalPlayers</MudText>
+                            <MudText><strong>Tornei Test:</strong> @cleanupResult.TestTournaments / @cleanupResult.TotalTournaments</MudText>
+                            <MudText><strong>Partite Test:</strong> @cleanupResult.TestMatches / @cleanupResult.TotalMatches</MudText>
+                            <MudText><strong>Statistiche:</strong> @cleanupResult.TotalStats</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Caricamento conteggi...</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Warning" OnClick="CleanupTestData"
+                                   Disabled="cleanupResult?.TestPlayers == 0 && cleanupResult?.TestTournaments == 0">
+                            Pulisci Dati Test
+                        </MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="ShowCleanupAllDialog"
+                                   Disabled="cleanupResult?.TotalPlayers == 0">
+                            Pulisci Tutto
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">Log Operazioni</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent Style="max-height: 300px; overflow-y: auto;">
+                        @foreach (var log in operationLogs.TakeLast(10).Reverse())
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-1">
+                                <strong>@log.Timestamp.ToString("HH:mm:ss")</strong> - @log.Message
+                            </MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Secondary" OnClick="ClearLogs">
+                            Pulisci Log
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-6" />
+
+        <MudGrid>
+            <MudItem xs="12">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RunAllTests" Class="mr-3">
+                    Esegui Tutti i Test
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="RefreshData">
+                    Ricarica Dati
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private bool isLoading = true;
+    
+    private AppSettings? settings;
+    private List<Player> players = new();
+    private List<Tournament> tournaments = new();
+    private Tournament? currentTournament;
+    private List<Match> currentTournamentMatches = new();
+    private int totalMatches = 0;
+    private List<PlayerStats> overallStats = new();
+    private List<PlayerStats> tournamentStats = new();
+    private CleanupResult? cleanupResult;
+    
+    private List<OperationLog> operationLogs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllData();
+    }
+
+    private async Task LoadAllData()
+    {
+        isLoading = true;
+        try
+        {
+            AddLog("Caricamento dati in corso...");
+            
+            // Test Settings Service
+            settings = await SettingsService.GetSettingsAsync();
+            AddLog($"✓ Impostazioni caricate. Dark Mode: {settings.DarkMode}");
+
+            // Test Player Service
+            players = await PlayerService.GetAllPlayersAsync();
+            AddLog($"✓ Caricati {players.Count} giocatori");
+
+            // Test Tournament Service
+            tournaments = await TournamentService.GetAllTournamentsAsync();
+            AddLog($"✓ Caricati {tournaments.Count} tornei");
+
+            currentTournament = await TournamentService.GetCurrentTournamentAsync();
+            if (currentTournament != null)
+            {
+                AddLog($"✓ Torneo corrente: {currentTournament.Name}");
+                
+                // Test Match Service
+                currentTournamentMatches = await MatchService.GetMatchesByTournamentAsync(currentTournament.Id);
+                AddLog($"✓ Caricate {currentTournamentMatches.Count} partite del torneo corrente");
+                
+                // Test Stats Service
+                tournamentStats = await StatsService.GetTournamentPlayerStatsAsync(currentTournament.Id);
+                AddLog($"✓ Caricate statistiche per {tournamentStats.Count} giocatori del torneo");
+            }
+
+            // Statistiche generali
+            overallStats = await StatsService.GetOverallPlayerStatsAsync();
+            AddLog($"✓ Caricate statistiche generali per {overallStats.Count} giocatori");
+
+            // Carica conteggi per cleanup
+            cleanupResult = await CleanupService.GetDataCountsAsync();
+            AddLog($"✓ Conteggi database aggiornati");
+
+            AddLog("✅ Tutti i servizi testati con successo!");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TestToggleDarkMode()
+    {
+        try
+        {
+            var newDarkMode = !settings!.DarkMode;
+            await SettingsService.UpdateSettingAsync("DarkMode", newDarkMode);
+            settings = await SettingsService.GetSettingsAsync();
+            AddLog($"✓ Dark Mode cambiato a: {settings.DarkMode}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore toggle dark mode: {ex.Message}");
+        }
+    }
+
+    private async Task TestCreatePlayer()
+    {
+        try
+        {
+            var random = new Random();
+            var newPlayer = new Player
+            {
+                Name = $"Test{random.Next(100, 999)}",
+                Surname = "Player",
+                Nickname = $"TP{random.Next(10, 99)}",
+                SkillLevel = random.Next(2) == 0 ? SkillLevel.FasciaA : SkillLevel.FasciaB
+            };
+
+            await PlayerService.AddPlayerAsync(newPlayer);
+            players = await PlayerService.GetAllPlayersAsync();
+            AddLog($"✓ Creato giocatore: {newPlayer.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore creazione giocatore: {ex.Message}");
+        }
+    }
+
+    private async Task TestCreateTournament()
+    {
+        try
+        {
+            var random = new Random();
+            var newTournament = new Tournament
+            {
+                Name = $"Torneo Test {DateTime.Now:dd/MM HH:mm}",
+                Description = "Torneo creato automaticamente per test",
+                Status = TournamentStatus.Active,
+                Days = 5,
+                MatchesPerDay = 4,
+                MaxPlayers = 8,
+                PlayerIds = players.Take(4).Select(p => p.Id).ToList()
+            };
+
+            await TournamentService.CreateTournamentAsync(newTournament);
+            await TournamentService.SetCurrentTournamentAsync(newTournament.Id);
+            
+            tournaments = await TournamentService.GetAllTournamentsAsync();
+            currentTournament = await TournamentService.GetCurrentTournamentAsync();
+            settings = await SettingsService.GetSettingsAsync();
+            
+            AddLog($"✓ Creato e selezionato torneo: {newTournament.Name}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore creazione torneo: {ex.Message}");
+        }
+    }
+
+    private async Task TestGenerateMatches()
+    {
+        if (currentTournament == null) return;
+        
+        try
+        {
+            var matches = await MatchService.GenerateMatchesAsync(
+                currentTournament.Id, 
+                PairingStrategy.BalancedAB, 
+                MatchFormat.BestOfThree
+            );
+            
+            currentTournamentMatches = await MatchService.GetMatchesByTournamentAsync(currentTournament.Id);
+            currentTournament = await TournamentService.GetCurrentTournamentAsync();
+            
+            AddLog($"✓ Generate {matches.Count} partite per il round {currentTournament!.CurrentRound - 1}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore generazione partite: {ex.Message}");
+        }
+    }
+
+    private async Task TestCalculateStats()
+    {
+        if (currentTournament == null) return;
+        
+        try
+        {
+            await StatsService.CalculatePlayerStatsAsync(currentTournament.Id);
+            tournamentStats = await StatsService.GetTournamentPlayerStatsAsync(currentTournament.Id);
+            overallStats = await StatsService.GetOverallPlayerStatsAsync();
+            
+            AddLog($"✓ Statistiche calcolate per il torneo {currentTournament.Name}");
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore calcolo statistiche: {ex.Message}");
+        }
+    }
+
+    private async Task RunAllTests()
+    {
+        AddLog("🚀 Inizio test completo di tutti i servizi...");
+        
+        await TestCreatePlayer();
+        await TestCreatePlayer(); // Crea un secondo giocatore
+        await TestCreateTournament();
+        
+        if (CanGenerateMatches())
+        {
+            await TestGenerateMatches();
+        }
+        
+        await TestCalculateStats();
+        await TestToggleDarkMode();
+        
+        AddLog("🎉 Test completo terminato!");
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadAllData();
+    }
+
+    private async Task RefreshCounts()
+    {
+        try
+        {
+            cleanupResult = await CleanupService.GetDataCountsAsync();
+            AddLog("✓ Conteggi database aggiornati");
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore aggiornamento conteggi: {ex.Message}");
+        }
+    }
+
+    private async Task CleanupTestData()
+    {
+        try
+        {
+            await CleanupService.CleanupTestDataAsync();
+            AddLog("🗑️ Dati di test rimossi dal database");
+            await LoadAllData();
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore pulizia dati test: {ex.Message}");
+        }
+    }
+
+    private async Task ShowCleanupAllDialog()
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "⚠️ ATTENZIONE",
+            "Questa operazione eliminerà TUTTI i dati dal database (giocatori, tornei, partite, statistiche). Questa azione NON può essere annullata!\n\nSei sicuro di voler procedere?",
+            yesText: "SÌ, ELIMINA TUTTO",
+            cancelText: "Annulla"
+        );
+
+        if (result == true)
+        {
+            await CleanupAllData();
+        }
+    }
+
+    private async Task CleanupAllData()
+    {
+        try
+        {
+            await CleanupService.CleanupAllDataAsync();
+            AddLog("🗑️ TUTTI i dati sono stati rimossi dal database");
+            await LoadAllData();
+        }
+        catch (Exception ex)
+        {
+            AddLog($"❌ Errore pulizia completa: {ex.Message}");
+        }
+    }
+
+    private void ClearLogs()
+    {
+        operationLogs.Clear();
+        StateHasChanged();
+    }
+
+    private bool CanGenerateMatches()
+    {
+        return currentTournament != null && 
+               currentTournament.CurrentPlayerCount >= 4 && 
+               !currentTournamentMatches.Any(m => m.Status != MatchStatus.Completed);
+    }
+
+    private Color GetTournamentColor(TournamentStatus status)
+    {
+        return status switch
+        {
+            TournamentStatus.Active => Color.Success,
+            TournamentStatus.Completed => Color.Info,
+            TournamentStatus.Draft => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private void AddLog(string message)
+    {
+        operationLogs.Add(new OperationLog
+        {
+            Timestamp = DateTime.Now,
+            Message = message
+        });
+        StateHasChanged();
+    }
+
+    private class OperationLog
+    {
+        public DateTime Timestamp { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}
