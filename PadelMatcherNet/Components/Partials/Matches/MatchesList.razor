@@ -1,0 +1,38 @@
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Components.Partials.Matches
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+
+@if (Matches != null && Matches.Any())
+{
+    <MudGrid>
+        @foreach (var match in Matches.OrderBy(m => m.Round).ThenBy(m => m.CreatedAt))
+        {
+            <MudItem xs="12" sm="6" lg="4">
+                <MatchCard Match="match"
+                         OnEditResults="() => OnEditResults.InvokeAsync(match)"
+                         OnDelete="() => OnDelete.InvokeAsync(match)" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">
+        @if (IsEmptyWithoutFilters)
+        {
+            <text>Nessuna partita generata per questo torneo.</text>
+        }
+        else
+        {
+            <text>Nessuna partita corrisponde ai filtri selezionati.</text>
+        }
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public IEnumerable<Match>? Matches { get; set; }
+    [Parameter] public bool IsEmptyWithoutFilters { get; set; }
+    [Parameter] public EventCallback<Match> OnEditResults { get; set; }
+    [Parameter] public EventCallback<Match> OnDelete { get; set; }
+}

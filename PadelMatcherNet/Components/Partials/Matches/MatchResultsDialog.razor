@@ -1,6 +1,9 @@
 @using PadelMatcherNet.Models
+@using PadelMatcherNet.Components.Partials.Matches
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
 
-<MudDialog IsVisible="@IsVisible" Options="@(new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium })">
+<MudDialog @bind-Visible="IsVisible" Options="@(new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium })">
     <DialogContent>
         <MudContainer Style="max-width: 600px;">
             @if (Match != null)
@@ -60,7 +63,7 @@
 
                             @if (shouldShowSet)
                             {
-                                <MudGrid Class="mb-3" AlignItems="Center">
+                                <MudGrid>
                                     <MudItem xs="3">
                                         <MudText Typo="Typo.body1" Align="Align.Center">Set @(setIndex + 1)</MudText>
                                     </MudItem>
@@ -125,8 +128,8 @@
                             Golden Point
                         </MudText>
 
-                        <MudRadioGroup T="string" @bind-SelectedOption="goldenPointWinner">
-                            <MudRadio T="string" Option="Match.Team1.Id" Color="Color.Primary">
+                        <MudRadioGroup T="string" @bind-Value="goldenPointWinner">
+                            <MudRadio T="string" Value="Match.Team1.Id" Color="Color.Primary">
                                 <div style="display: flex; align-items: center; padding: 8px;">
                                     <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
                                            Color="@(goldenPointWinner == Match.Team1.Id ? Color.Warning : Color.Default)"
@@ -139,7 +142,7 @@
                                     </div>
                                 </div>
                             </MudRadio>
-                            <MudRadio T="string" Option="Match.Team2.Id" Color="Color.Primary">
+                            <MudRadio T="string" Value="Match.Team2.Id" Color="Color.Primary">
                                 <div style="display: flex; align-items: center; padding: 8px;">
                                     <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
                                            Color="@(goldenPointWinner == Match.Team2.Id ? Color.Warning : Color.Default)"
@@ -193,7 +196,7 @@
 
 @code {
     [Parameter] public bool IsVisible { get; set; }
-    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
     [Parameter] public Match? Match { get; set; }
     [Parameter] public EventCallback<(Match match, List<MatchSetScore> scores, string? winnerTeamId)> OnSave { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
@@ -411,7 +414,7 @@
         }
 
         await OnSave.InvokeAsync((Match, matchScores, winnerTeamId));
-        await IsVisibleChanged.InvokeAsync(false);
+        await VisibleChanged.InvokeAsync(false);
     }
 
     private async Task HandleClearResults()
@@ -419,7 +422,7 @@
         if (Match == null) return;
 
         await OnSave.InvokeAsync((Match, new List<MatchSetScore>(), null));
-        await IsVisibleChanged.InvokeAsync(false);
+        await VisibleChanged.InvokeAsync(false);
     }
 
     private class ScoreInput

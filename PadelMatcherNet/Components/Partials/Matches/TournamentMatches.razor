@@ -1,0 +1,69 @@
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Components.Partials.Matches
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+
+<MudGrid>
+    <MudItem xs="12">
+        <TournamentHeader 
+            Tournament="CurrentTournament" 
+            MatchesCount="Matches?.Count ?? 0"
+            HasPendingMatches="Matches?.Any(m => m.Status != MatchStatus.Completed) ?? false"
+            OnGenerate="OnGenerateMatches" />
+    </MudItem>
+
+    @if (Matches?.Any() == true)
+    {
+        <MudItem xs="12">
+            <QuickActions 
+                HasPendingMatches="Matches.Any(m => m.Status != MatchStatus.Completed)"
+                OnClearPending="OnClearPending"
+                OnRecalculate="OnRecalculateStats" />
+        </MudItem>
+    }
+
+    <MudItem xs="12">
+        <MatchFilters 
+            RoundFilter="currentRoundFilter"
+            RoundFilterChanged="OnRoundFilterChanged"
+            StatusFilter="currentStatusFilter"
+            StatusFilterChanged="OnStatusFilterChanged"
+            AvailableRounds="Matches?.Select(m => m.Round).Distinct().OrderBy(r => r).ToList() ?? new List<int>()" />
+    </MudItem>
+
+    <MudItem xs="12">
+        <MatchesList 
+            Matches="FilteredMatches"
+            OnEditResults="OnEditResults"
+            OnDelete="OnDeleteMatch" />
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter] public Tournament? CurrentTournament { get; set; }
+    [Parameter] public List<Match>? Matches { get; set; }
+    [Parameter] public List<Match>? FilteredMatches { get; set; }
+    [Parameter] public List<Player>? TournamentPlayers { get; set; }
+    [Parameter] public EventCallback OnGenerateMatches { get; set; }
+    [Parameter] public EventCallback OnClearPending { get; set; }
+    [Parameter] public EventCallback OnRecalculateStats { get; set; }
+    [Parameter] public EventCallback<Match> OnEditResults { get; set; }
+    [Parameter] public EventCallback<Match> OnDeleteMatch { get; set; }
+    [Parameter] public EventCallback<(int? Round, MatchStatus? Status)> OnFilterChanged { get; set; }
+    
+    // Variabili locali per tenere traccia dei filtri correnti
+    private int? currentRoundFilter = null;
+    private MatchStatus? currentStatusFilter = null;
+    
+    private async Task OnRoundFilterChanged(int? round)
+    {
+        currentRoundFilter = round;
+        await OnFilterChanged.InvokeAsync((round, currentStatusFilter));
+    }
+    
+    private async Task OnStatusFilterChanged(MatchStatus? status)
+    {
+        currentStatusFilter = status;
+        await OnFilterChanged.InvokeAsync((currentRoundFilter, status));
+    }
+}

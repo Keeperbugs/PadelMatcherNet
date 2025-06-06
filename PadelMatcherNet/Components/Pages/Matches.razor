@@ -2,12 +2,11 @@
 @using PadelMatcherNet.Models
 @using PadelMatcherNet.Services
 @using PadelMatcherNet.Components.Partials
+@using PadelMatcherNet.Components.Partials.Matches
 @inject IMatchService MatchService
 @inject ITournamentService TournamentService
-@inject IPlayerService PlayerService
-@inject ISettingsService SettingsService
-@inject IStatsService StatsService
 @inject IDialogService DialogService
+@inject IStatsService StatsService
 
 <PageTitle>Gestione Partite</PageTitle>
 
@@ -20,239 +19,41 @@
     }
     else if (currentTournament == null)
     {
-        <MudAlert Severity="Severity.Warning">
-            <MudText>Nessun torneo selezionato. Vai alla sezione Tornei per selezionarne uno.</MudText>
-            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tournaments" Class="mt-2">
-                Vai ai Tornei
-            </MudButton>
-        </MudAlert>
+        <NoTournamentSelected />
     }
     else
     {
-        <MudGrid>
-            <!-- Header con info torneo corrente -->
-            <MudItem xs="12">
-                <MudPaper Class="pa-4 mb-4">
-                    <MudGrid>
-                        <MudItem xs="12" sm="8">
-                            <MudText Typo="Typo.h6">
-                                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" />
-                                @currentTournament.Name
-                            </MudText>
-                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                                Round @currentTournament.CurrentRound • @matches.Count partite totali
-                            </MudText>
-                        </MudItem>
-                        <MudItem xs="12" sm="4" Class="text-right">
-                            <MudButton Variant="Variant.Filled" 
-                                       Color="Color.Primary" 
-                                       StartIcon="@Icons.Material.Filled.Add"
-                                       OnClick="ShowGenerateMatchesDialog">
-                                Genera Partite (@HasPendingMatches())
-                            </MudButton>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-            </MudItem>
-
-            <!-- Azioni rapide -->
-            @if (matches.Any())
-            {
-                <MudItem xs="12">
-                    <MudPaper Class="pa-3 mb-4">
-                        <MudGrid>
-                            <MudItem xs="12" sm="6">
-                                <MudText Typo="Typo.subtitle1">Azioni Rapide</MudText>
-                            </MudItem>
-                            <MudItem xs="12" sm="6" Class="text-right">
-                                @if (HasPendingMatches())
-                                {
-                                    <MudButton Variant="Variant.Text" 
-                                              Color="Color.Warning" 
-                                              StartIcon="@Icons.Material.Filled.Clear"
-                                              OnClick="ClearPendingMatches">
-                                        Cancella Partite Pendenti
-                                    </MudButton>
-                                }
-                                <MudButton Variant="Variant.Text" 
-                                          Color="Color.Info" 
-                                          StartIcon="@Icons.Material.Filled.Calculate"
-                                          OnClick="RecalculateStats">
-                                    Ricalcola Statistiche
-                                </MudButton>
-                            </MudItem>
-                        </MudGrid>
-                    </MudPaper>
-                </MudItem>
-            }
-
-            <!-- Filtri partite -->
-            <MudItem xs="12">
-                <MatchFilters RoundFilter="@roundFilter"
-                            RoundFilterChanged="@((int? value) => { roundFilter = value; ApplyFilters(); })"
-                            StatusFilter="@statusFilter"
-                            StatusFilterChanged="@((MatchStatus? value) => { statusFilter = value; ApplyFilters(); })"
-                            AvailableRounds="@GetAvailableRounds()" />
-            </MudItem>
-
-            <!-- Lista partite -->
-            <MudItem xs="12">
-                @if (filteredMatches.Any())
-                {
-                    <MudGrid>
-                        @foreach (var match in filteredMatches.OrderBy(m => m.Round).ThenBy(m => m.CreatedAt))
-                        {
-                            <MudItem xs="12" sm="6" lg="4">
-                                <MatchCard Match="match"
-                                         OnEditResults="() => ShowResultsDialog(match)"
-                                         OnEdit="() => ShowEditMatchDialog(match)"
-                                         OnDelete="() => DeleteMatch(match)" />
-                            </MudItem>
-                        }
-                    </MudGrid>
-                }
-                else
-                {
-                    <MudAlert Severity="Severity.Info">
-                        @if (roundFilter == null && statusFilter == null)
-                        {
-                            <text>Nessuna partita generata per questo torneo. Usa "Genera Partite" per creare le partite del round corrente.</text>
-                        }
-                        else
-                        {
-                            <text>Nessuna partita corrisponde ai filtri selezionati.</text>
-                        }
-                    </MudAlert>
-                }
-            </MudItem>
-        </MudGrid>
+        <TournamentMatches 
+            CurrentTournament="currentTournament"
+            Matches="matches"
+            FilteredMatches="filteredMatches"
+            TournamentPlayers="tournamentPlayers"
+            OnClearPending="EventCallback.Factory.Create(this, ClearPendingMatches)"
+            OnRecalculateStats="EventCallback.Factory.Create(this, RecalculateStats)"
+            OnGenerateMatches="EventCallback.Factory.Create(this, ShowGenerateMatchesDialog)"
+            OnEditResults="EventCallback.Factory.Create<Match>(this, ShowResultsDialog)"
+            OnDeleteMatch="EventCallback.Factory.Create<Match>(this, DeleteMatch)"
+            OnFilterChanged="EventCallback.Factory.Create<(int? Round, MatchStatus? Status)>(this, ApplyFilters)"
+        />
     }
 </MudContainer>
 
-<!-- Dialog semplice inline per generazione partite -->
 @if (showGenerateDialog)
 {
-    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
-        <MudPaper Class="pa-6" Style="max-width: 600px; margin: 50px auto;">
-            <MudText Typo="Typo.h6" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Class="mr-2" />
-                Genera Nuove Partite
-            </MudText>
-
-            @if (currentTournament != null)
-            {
-                <MudAlert Severity="Severity.Info" Class="mb-4">
-                    <MudText><strong>Torneo:</strong> @currentTournament.Name</MudText>
-                    <MudText><strong>Round:</strong> @currentTournament.CurrentRound</MudText>
-                    <MudText><strong>Giocatori:</strong> @tournamentPlayers.Count</MudText>
-                    <MudText><strong>Fascia A:</strong> @tournamentPlayers.Count(p => p.SkillLevel == SkillLevel.FasciaA)</MudText>
-                    <MudText><strong>Fascia B:</strong> @tournamentPlayers.Count(p => p.SkillLevel == SkillLevel.FasciaB)</MudText>
-                </MudAlert>
-
-                <MudGrid>
-                    <MudItem xs="12">
-                        <MudSelect T="PairingStrategy" @bind-Value="selectedStrategy" Label="Strategia">
-                            <MudSelectItem Value="PairingStrategy.BalancedAB">Bilanciato A-B</MudSelectItem>
-                            <MudSelectItem Value="PairingStrategy.SkillA">Solo Fascia A</MudSelectItem>
-                            <MudSelectItem Value="PairingStrategy.SkillB">Solo Fascia B</MudSelectItem>
-                            <MudSelectItem Value="PairingStrategy.Mixed">Misto</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                    <MudItem xs="12">
-                        <MudSelect T="MatchFormat" @bind-Value="selectedFormat" Label="Formato">
-                            <MudSelectItem Value="MatchFormat.BestOfThree">Al meglio di 3 set</MudSelectItem>
-                            <MudSelectItem Value="MatchFormat.GoldenPoint">Golden Point</MudSelectItem>
-                        </MudSelect>
-                    </MudItem>
-                </MudGrid>
-
-                <div class="d-flex justify-end mt-4">
-                    <MudButton OnClick="() => showGenerateDialog = false" Class="mr-2">
-                        Annulla
-                    </MudButton>
-                    <MudButton OnClick="HandleGenerateFromDialog" Variant="Variant.Filled" Color="Color.Primary">
-                        Genera Partite
-                    </MudButton>
-                </div>
-            }
-        </MudPaper>
-    </MudOverlay>
+    <GenerateMatchesDialog 
+        Tournament="currentTournament"
+        Players="tournamentPlayers"
+        OnGenerate="HandleGenerateFromDialog"
+        OnCancel="() => showGenerateDialog = false" />
 }
 
-<!-- Dialog semplice inline per risultati partite -->
 @if (showResultsDialog && selectedMatch != null)
 {
-    <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
-        <MudPaper Class="pa-6" Style="max-width: 600px; margin: 50px auto;">
-            <MudText Typo="Typo.h6" Class="mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.EditNote" Class="mr-2" />
-                Inserisci Risultati - Round @selectedMatch.Round
-            </MudText>
-
-            <MudAlert Severity="Severity.Info" Class="mb-4">
-                <MudText><strong>@GetTeamDisplayName(selectedMatch.Team1)</strong> vs <strong>@GetTeamDisplayName(selectedMatch.Team2)</strong></MudText>
-                <MudText>Formato: @(selectedMatch.MatchFormat == MatchFormat.BestOfThree ? "Al meglio di 3 set" : "Golden Point")</MudText>
-            </MudAlert>
-
-            @if (selectedMatch.MatchFormat == MatchFormat.BestOfThree)
-            {
-                <MudGrid>
-                    <!-- Set 1 -->
-                    <MudItem xs="4"><MudText>Set 1:</MudText></MudItem>
-                    <MudItem xs="3">
-                        <MudNumericField @bind-Value="set1Team1" Label="@GetTeamShortName(selectedMatch.Team1)" Min="0" />
-                    </MudItem>
-                    <MudItem xs="2"><MudText Align="Align.Center">-</MudText></MudItem>
-                    <MudItem xs="3">
-                        <MudNumericField @bind-Value="set1Team2" Label="@GetTeamShortName(selectedMatch.Team2)" Min="0" />
-                    </MudItem>
-
-                    <!-- Set 2 -->
-                    <MudItem xs="4"><MudText>Set 2:</MudText></MudItem>
-                    <MudItem xs="3">
-                        <MudNumericField @bind-Value="set2Team1" Label="@GetTeamShortName(selectedMatch.Team1)" Min="0" />
-                    </MudItem>
-                    <MudItem xs="2"><MudText Align="Align.Center">-</MudText></MudItem>
-                    <MudItem xs="3">
-                        <MudNumericField @bind-Value="set2Team2" Label="@GetTeamShortName(selectedMatch.Team2)" Min="0" />
-                    </MudItem>
-
-                    <!-- Set 3 (solo se necessario) -->
-                    @if (ShouldShowSet3())
-                    {
-                        <MudItem xs="4"><MudText>Set 3:</MudText></MudItem>
-                        <MudItem xs="3">
-                            <MudNumericField @bind-Value="set3Team1" Label="@GetTeamShortName(selectedMatch.Team1)" Min="0" />
-                        </MudItem>
-                        <MudItem xs="2"><MudText Align="Align.Center">-</MudText></MudItem>
-                        <MudItem xs="3">
-                            <MudNumericField @bind-Value="set3Team2" Label="@GetTeamShortName(selectedMatch.Team2)" Min="0" />
-                        </MudItem>
-                    }
-                </MudGrid>
-            }
-            else
-            {
-                <!-- Golden Point -->
-                <MudText Class="mb-2">Chi ha vinto il Golden Point?</MudText>
-                <MudSelect @bind-Value="goldenPointWinner" Label="Vincitore">
-                    <MudSelectItem Value="@string.Empty">-- Seleziona vincitore --</MudSelectItem>
-                    <MudSelectItem Value="@selectedMatch.Team1.Id">@GetTeamDisplayName(selectedMatch.Team1)</MudSelectItem>
-                    <MudSelectItem Value="@selectedMatch.Team2.Id">@GetTeamDisplayName(selectedMatch.Team2)</MudSelectItem>
-                </MudSelect>
-            }
-
-            <div class="d-flex justify-end mt-4">
-                <MudButton OnClick="() => showResultsDialog = false" Class="mr-2">
-                    Annulla
-                </MudButton>
-                <MudButton OnClick="SaveResultsFromDialog" Variant="Variant.Filled" Color="Color.Primary" 
-                           Disabled="@(!CanSaveResults())">
-                    Salva Risultati
-                </MudButton>
-            </div>
-        </MudPaper>
-    </MudOverlay>
+    <MatchResultsDialog 
+        IsVisible="showResultsDialog"
+        Match="selectedMatch"
+        OnSave="SaveResultsFromDialog"
+        OnCancel="() => showResultsDialog = false" />
 }
 
 @code {
@@ -260,154 +61,42 @@
     private Tournament? currentTournament = null;
     private List<Match> matches = new();
     private List<Match> filteredMatches = new();
-    private List<Player> tournamentPlayers = new(); // NUOVO
-    
-    // Filtri
-    private int? roundFilter = null;
-    private MatchStatus? statusFilter = null;
-    
-    // Dialog
+    private List<Player> tournamentPlayers = new();
     private bool showGenerateDialog = false;
     private bool showResultsDialog = false;
     private Match? selectedMatch = null;
     
-    // Dialog semplice per generazione
-    private PairingStrategy selectedStrategy = PairingStrategy.BalancedAB;
-    private MatchFormat selectedFormat = MatchFormat.BestOfThree;
+    // AGGIUNTE: Variabili per i filtri che mancavano
+    private int? roundFilter = null;
+    private MatchStatus? statusFilter = null;
 
-    // Dialog risultati
-    private int? set1Team1, set1Team2, set2Team1, set2Team2, set3Team1, set3Team2;
-    private string goldenPointWinner = "";
+    protected override async Task OnInitializedAsync() => await LoadData();
 
-    private async Task HandleGenerateFromDialog()
+    private void ShowGenerateMatchesDialog()
     {
-        Console.WriteLine("🚀 GENERAZIONE da dialog semplice");
-        Console.WriteLine($"📋 Strategia: {selectedStrategy}, Formato: {selectedFormat}");
-        
-        showGenerateDialog = false;
+        showGenerateDialog = true;
         StateHasChanged();
-        
-        await GenerateMatches((selectedStrategy, selectedFormat));
     }
 
-    private async Task SaveResultsFromDialog()
+    private void ShowResultsDialog(Match match)
     {
-        if (selectedMatch == null) return;
-        
-        var scores = new List<MatchSetScore>();
-        string? winnerId = null;
-        
-        if (selectedMatch.MatchFormat == MatchFormat.BestOfThree)
+        selectedMatch = match;
+        showResultsDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task DeleteMatch(Match match)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Conferma Eliminazione",
+            $"Sei sicuro di voler eliminare questa partita?\n\n{match.Team1.DisplayName} vs {match.Team2.DisplayName}",
+            yesText: "Elimina", cancelText: "Annulla");
+
+        if (result == true)
         {
-            // Aggiungi set validi
-            if (set1Team1.HasValue && set1Team2.HasValue)
-                scores.Add(new MatchSetScore { SetNumber = 1, Team1Score = set1Team1.Value, Team2Score = set1Team2.Value });
-            
-            if (set2Team1.HasValue && set2Team2.HasValue)
-                scores.Add(new MatchSetScore { SetNumber = 2, Team1Score = set2Team1.Value, Team2Score = set2Team2.Value });
-            
-            if (set3Team1.HasValue && set3Team2.HasValue)
-                scores.Add(new MatchSetScore { SetNumber = 3, Team1Score = set3Team1.Value, Team2Score = set3Team2.Value });
-            
-            // Determina vincitore
-            winnerId = GetWinnerFromSets();
-        }
-        else
-        {
-            if (!string.IsNullOrEmpty(goldenPointWinner))
-            {
-                scores.Add(new MatchSetScore 
-                { 
-                    SetNumber = 1, 
-                    Team1Score = goldenPointWinner == selectedMatch.Team1.Id ? "GP" : "",
-                    Team2Score = goldenPointWinner == selectedMatch.Team2.Id ? "GP" : ""
-                });
-                winnerId = goldenPointWinner;
-            }
-        }
-        
-        Console.WriteLine($"💾 Salvando risultati: {scores.Count} set, vincitore: {winnerId}");
-        
-        try
-        {
-            await MatchService.SaveMatchResultsAsync(selectedMatch.Id, scores, winnerId);
+            await MatchService.DeleteMatchAsync(match.Id);
             await LoadData();
-            showResultsDialog = false;
-            Console.WriteLine("✅ Risultati salvati con successo");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Errore salvataggio risultati: {ex.Message}");
-        }
-    }
-
-    private bool ShouldShowSet3()
-    {
-        if (!set1Team1.HasValue || !set1Team2.HasValue || !set2Team1.HasValue || !set2Team2.HasValue)
-            return false;
-        
-        var team1Sets = 0;
-        var team2Sets = 0;
-        
-        if (set1Team1 > set1Team2) team1Sets++; else if (set1Team2 > set1Team1) team2Sets++;
-        if (set2Team1 > set2Team2) team1Sets++; else if (set2Team2 > set2Team1) team2Sets++;
-        
-        return team1Sets == 1 && team2Sets == 1;
-    }
-
-    private bool CanSaveResults()
-    {
-        if (selectedMatch?.MatchFormat == MatchFormat.GoldenPoint)
-            return !string.IsNullOrEmpty(goldenPointWinner);
-        
-        return !string.IsNullOrEmpty(GetWinnerFromSets());
-    }
-
-    private string GetWinnerFromSets()
-    {
-        if (selectedMatch == null) return "";
-        
-        var team1Sets = 0;
-        var team2Sets = 0;
-        
-        if (set1Team1.HasValue && set1Team2.HasValue)
-        {
-            if (set1Team1 > set1Team2) team1Sets++; else if (set1Team2 > set1Team1) team2Sets++;
-        }
-        
-        if (set2Team1.HasValue && set2Team2.HasValue)
-        {
-            if (set2Team1 > set2Team2) team1Sets++; else if (set2Team2 > set2Team1) team2Sets++;
-        }
-        
-        if (set3Team1.HasValue && set3Team2.HasValue)
-        {
-            if (set3Team1 > set3Team2) team1Sets++; else if (set3Team2 > set3Team1) team2Sets++;
-        }
-        
-        if (team1Sets >= 2) return selectedMatch.Team1.Id;
-        if (team2Sets >= 2) return selectedMatch.Team2.Id;
-        
-        return "";
-    }
-
-    private string GetTeamDisplayName(Team team)
-    {
-        var player1Name = team.Player1.Nickname ?? team.Player1.Name;
-        var player2Name = team.Player2.Nickname ?? team.Player2.Name;
-        return $"{player1Name} / {player2Name}";
-    }
-
-    private string GetTeamShortName(Team team)
-    {
-        var player1Initial = (team.Player1.Nickname ?? team.Player1.Name).Substring(0, 1);
-        var player2Initial = (team.Player2.Nickname ?? team.Player2.Name).Substring(0, 1);
-        return $"{player1Initial}.{player2Initial}";
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadData();
     }
 
     private async Task LoadData()
@@ -420,17 +109,9 @@
             if (currentTournament != null)
             {
                 matches = await MatchService.GetMatchesByTournamentAsync(currentTournament.Id);
-                
-                // NUOVO: Carica i giocatori del torneo
                 tournamentPlayers = await TournamentService.GetTournamentPlayersAsync(currentTournament.Id);
-                Console.WriteLine($"✅ Caricati {tournamentPlayers.Count} giocatori del torneo");
-                
-                ApplyFilters();
+                ApplyFilters((null, null)); // CORREZIONE: Chiamata con tupla
             }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Errore caricamento dati: {ex.Message}");
         }
         finally
         {
@@ -439,8 +120,13 @@
         }
     }
 
-    private void ApplyFilters()
+    // CORREZIONE: Metodo ApplyFilters con firma corretta
+    private void ApplyFilters((int? Round, MatchStatus? Status) filterArgs)
     {
+        // Se non vengono passati parametri, usa i valori correnti
+        roundFilter = filterArgs.Round ?? roundFilter;
+        statusFilter = filterArgs.Status ?? statusFilter;
+        
         filteredMatches = matches.Where(m => 
             (roundFilter == null || m.Round == roundFilter) &&
             (statusFilter == null || m.Status == statusFilter)
@@ -449,140 +135,22 @@
         StateHasChanged();
     }
 
-    private List<int> GetAvailableRounds()
+    private async Task HandleGenerateFromDialog((PairingStrategy strategy, MatchFormat format) parameters)
     {
-        return matches.Select(m => m.Round).Distinct().OrderBy(r => r).ToList();
-    }
-
-    private bool HasPendingMatches()
-    {
-        var result = matches.Any(m => m.Status != MatchStatus.Completed);
-        Console.WriteLine($"🔍 HasPendingMatches check: {result} (totale partite: {matches.Count})");
-        return result;
-    }
-
-    private void ShowGenerateMatchesDialog()
-    {
-        Console.WriteLine("🎯 CLICK: Pulsante Genera Partite premuto");
-        Console.WriteLine($"🏆 Torneo corrente: {currentTournament?.Name ?? "NULL"}");
-        Console.WriteLine($"👥 Giocatori caricati: {tournamentPlayers.Count}");
+        if (currentTournament == null) return;
         
-        showGenerateDialog = true;
-        StateHasChanged();
-    }
-
-    private void CancelGenerateDialog()
-    {
+        await MatchService.GenerateMatchesAsync(currentTournament.Id, parameters.strategy, parameters.format);
+        await LoadData();
         showGenerateDialog = false;
     }
 
-    private async Task GenerateMatches((PairingStrategy strategy, MatchFormat format) parameters)
+    private async Task SaveResultsFromDialog((Match match, List<MatchSetScore> scores, string? winnerTeamId) resultData)
     {
-        Console.WriteLine($"🚀 INIZIO generazione partite - Strategia: {parameters.strategy}, Formato: {parameters.format}");
+        if (resultData.match == null) return;
         
-        if (currentTournament == null) 
-        {
-            Console.WriteLine("❌ currentTournament è null");
-            return;
-        }
-        
-        Console.WriteLine($"✅ Torneo: {currentTournament.Name}, Giocatori: {tournamentPlayers.Count}");
-        
-        try
-        {
-            await MatchService.GenerateMatchesAsync(currentTournament.Id, parameters.strategy, parameters.format);
-            Console.WriteLine("✅ Partite generate con successo");
-            
-            await LoadData();
-            showGenerateDialog = false;
-
-            var generatedCount = matches.Count(m => m.Round == currentTournament.CurrentRound - 1);
-            Console.WriteLine($"📊 Generate {generatedCount} partite per il round {currentTournament.CurrentRound - 1}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Errore generazione partite: {ex.Message}");
-            Console.WriteLine($"❌ StackTrace: {ex.StackTrace}");
-        }
-    }
-
-    private void ShowResultsDialog(Match match)
-    {
-        Console.WriteLine($"🎯 Apertura dialog risultati per partita: {match.Id}");
-        selectedMatch = match;
-        showResultsDialog = true;
-        
-        // Inizializza i punteggi
-        if (match.MatchFormat == MatchFormat.BestOfThree)
-        {
-            set1Team1 = match.Scores.FirstOrDefault(s => s.SetNumber == 1)?.Team1Score as int? ?? null;
-            set1Team2 = match.Scores.FirstOrDefault(s => s.SetNumber == 1)?.Team2Score as int? ?? null;
-            set2Team1 = match.Scores.FirstOrDefault(s => s.SetNumber == 2)?.Team1Score as int? ?? null;
-            set2Team2 = match.Scores.FirstOrDefault(s => s.SetNumber == 2)?.Team2Score as int? ?? null;
-            set3Team1 = match.Scores.FirstOrDefault(s => s.SetNumber == 3)?.Team1Score as int? ?? null;
-            set3Team2 = match.Scores.FirstOrDefault(s => s.SetNumber == 3)?.Team2Score as int? ?? null;
-        }
-        else
-        {
-            goldenPointWinner = match.WinnerTeamId ?? "";
-        }
-        
-        StateHasChanged();
-    }
-
-    private void CancelResultsDialog()
-    {
+        await MatchService.SaveMatchResultsAsync(resultData.match.Id, resultData.scores, resultData.winnerTeamId);
+        await LoadData();
         showResultsDialog = false;
-        selectedMatch = null;
-    }
-
-    private async Task SaveMatchResults((Match match, List<MatchSetScore> scores, string? winnerTeamId) parameters)
-    {
-        try
-        {
-            await MatchService.SaveMatchResultsAsync(parameters.match.Id, parameters.scores, parameters.winnerTeamId);
-            await LoadData();
-            showResultsDialog = false;
-            
-            // TODO: Usare Snackbar per notifiche
-            Console.WriteLine("Risultati salvati con successo");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Errore salvataggio risultati: {ex.Message}");
-            // TODO: Mostrare errore all'utente
-        }
-    }
-
-    private void ShowEditMatchDialog(Match match)
-    {
-        // TODO: Implementare modifica partita (opzionale)
-        Console.WriteLine($"Edit match: {match.Id}");
-    }
-
-    private async Task DeleteMatch(Match match)
-    {
-        bool? result = await DialogService.ShowMessageBox(
-            "Conferma Eliminazione",
-            $"Sei sicuro di voler eliminare questa partita?\n\n{match.Team1.DisplayName} vs {match.Team2.DisplayName}\nRound {match.Round}",
-            yesText: "Elimina", cancelText: "Annulla");
-
-        if (result == true)
-        {
-            try
-            {
-                await MatchService.DeleteMatchAsync(match.Id);
-                await LoadData();
-                
-                // TODO: Usare Snackbar per notifiche
-                Console.WriteLine("Partita eliminata con successo");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore eliminazione partita: {ex.Message}");
-                // TODO: Mostrare errore all'utente
-            }
-        }
     }
 
     private async Task ClearPendingMatches()
@@ -592,39 +160,21 @@
         bool? result = await DialogService.ShowMessageBox(
             "Conferma Pulizia",
             "Sei sicuro di voler cancellare tutte le partite non completate?",
-            yesText: "Cancella", cancelText: "Annulla");
+            yesText: "Conferma", 
+            cancelText: "Annulla");
 
         if (result == true)
         {
-            try
-            {
-                await MatchService.DeleteUncompletedMatchesAsync(currentTournament.Id);
-                await LoadData();
-                
-                // TODO: Usare Snackbar per notifiche
-                Console.WriteLine("Partite pendenti cancellate");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Errore pulizia partite: {ex.Message}");
-                // TODO: Mostrare errore all'utente
-            }
+            await MatchService.DeleteUncompletedMatchesAsync(currentTournament.Id);
+            await LoadData();
         }
     }
 
     private async Task RecalculateStats()
     {
-        if (currentTournament == null) return;
-        
-        try
+        if (currentTournament != null)
         {
-            Console.WriteLine("🔄 Ricalcolando statistiche...");
             await StatsService.CalculatePlayerStatsAsync(currentTournament.Id);
-            Console.WriteLine("✅ Statistiche ricalcolate con successo");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Errore ricalcolo statistiche: {ex.Message}");
         }
     }
 }

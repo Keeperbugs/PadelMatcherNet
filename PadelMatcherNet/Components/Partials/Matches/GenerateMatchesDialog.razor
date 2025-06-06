@@ -1,0 +1,25 @@
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Components.Partials.Matches
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+
+<MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+    <MudPaper Class="pa-6" Style="max-width: 600px; margin: 50px auto;">
+        <!-- Contenuto del dialog semplificato -->
+        <div class="d-flex justify-end mt-4">
+            <MudButton OnClick="OnCancel" Class="mr-2">Annulla</MudButton>
+            <MudButton OnClick="HandleGenerate" Variant="Variant.Filled" Color="Color.Primary">
+                Genera Partite
+            </MudButton>
+        </div>
+    </MudPaper>
+</MudOverlay>
+
+@code {
+    [Parameter] public Tournament? Tournament { get; set; }
+    [Parameter] public List<Player>? Players { get; set; }
+    [Parameter]public EventCallback<(PairingStrategy Strategy, MatchFormat Format)> OnGenerate { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private void HandleGenerate() => OnGenerate.InvokeAsync();
+}
