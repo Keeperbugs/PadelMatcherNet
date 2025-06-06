@@ -1,0 +1,431 @@
+@using PadelMatcherNet.Models
+
+<MudDialog IsVisible="@IsVisible" Options="@(new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium })">
+    <DialogContent>
+        <MudContainer Style="max-width: 600px;">
+            @if (Match != null)
+            {
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.EditNote" Class="mr-2" />
+                    @(Match.Status == MatchStatus.Completed ? "Modifica Risultati" : "Inserisci Risultati")
+                </MudText>
+
+                <!-- Info Partita -->
+                <MudPaper Class="pa-3 mb-4" Style="background-color: var(--mud-palette-background-grey);">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.subtitle1" Class="mb-2">
+                                Round @Match.Round
+                                @if (!string.IsNullOrEmpty(Match.Court))
+                                {
+                                    <text> • Campo @Match.Court</text>
+                                }
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="5">
+                            <MudText Typo="Typo.body1" Align="Align.Center" Class="@GetTeamClass(Match.Team1.Id)">
+                                @GetTeamDisplayName(Match.Team1)
+                            </MudText>
+                            <MudText Typo="Typo.caption" Align="Align.Center" Class="mud-text-secondary">
+                                @GetTeamSkillInfo(Match.Team1)
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="2">
+                            <MudText Typo="Typo.h6" Align="Align.Center" Class="mud-text-secondary">VS</MudText>
+                        </MudItem>
+                        <MudItem xs="5">
+                            <MudText Typo="Typo.body1" Align="Align.Center" Class="@GetTeamClass(Match.Team2.Id)">
+                                @GetTeamDisplayName(Match.Team2)
+                            </MudText>
+                            <MudText Typo="Typo.caption" Align="Align.Center" Class="mud-text-secondary">
+                                @GetTeamSkillInfo(Match.Team2)
+                            </MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <MudForm @ref="form" @bind-IsValid="@isFormValid">
+                    @if (Match.MatchFormat == MatchFormat.BestOfThree)
+                    {
+                        <!-- Best of Three Format -->
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.SportsTennis" Size="Size.Small" Class="mr-1" />
+                            Punteggi Set (Al meglio di 3)
+                        </MudText>
+
+                        @for (int setIndex = 0; setIndex < maxSets; setIndex++)
+                        {
+                            var currentSetIndex = setIndex; // Closure fix
+                            var shouldShowSet = setIndex < 2 || ShouldShowThirdSet();
+
+                            @if (shouldShowSet)
+                            {
+                                <MudGrid Class="mb-3" AlignItems="Center">
+                                    <MudItem xs="3">
+                                        <MudText Typo="Typo.body1" Align="Align.Center">Set @(setIndex + 1)</MudText>
+                                    </MudItem>
+                                    <MudItem xs="3">
+                                        <MudNumericField @bind-Value="scores[currentSetIndex].Team1Score"
+                                                       T="int?"
+                                                       Label="@GetTeamShortName(Match.Team1)"
+                                                       Min="0"
+                                                       Variant="Variant.Outlined"
+                                                       Margin="Margin.Dense" />
+                                    </MudItem>
+                                    <MudItem xs="2">
+                                        <MudText Typo="Typo.h6" Align="Align.Center">-</MudText>
+                                    </MudItem>
+                                    <MudItem xs="3">
+                                        <MudNumericField @bind-Value="scores[currentSetIndex].Team2Score"
+                                                       T="int?"
+                                                       Label="@GetTeamShortName(Match.Team2)"
+                                                       Min="0"
+                                                       Variant="Variant.Outlined"
+                                                       Margin="Margin.Dense" />
+                                    </MudItem>
+                                    <MudItem xs="1">
+                                        @if (currentSetIndex < 2)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Star" 
+                                                   Color="@(IsSetWinner(currentSetIndex, Match.Team1.Id) ? Color.Warning : Color.Default)" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
+                                                   Color="@(IsSetWinner(currentSetIndex, Match.Team1.Id) ? Color.Warning : Color.Default)" />
+                                        }
+                                    </MudItem>
+                                </MudGrid>
+                            }
+                        }
+
+                        <!-- Set Summary -->
+                        @if (HasValidScores())
+                        {
+                            <MudAlert Severity="@GetResultSeverity()" Class="mt-3">
+                                <MudText>
+                                    <strong>Set vinti:</strong> 
+                                    @GetTeamShortName(Match.Team1): @GetSetsWonCount(Match.Team1.Id) • 
+                                    @GetTeamShortName(Match.Team2): @GetSetsWonCount(Match.Team2.Id)
+                                </MudText>
+                                @if (!string.IsNullOrEmpty(GetWinnerTeamId()))
+                                {
+                                    <MudText Class="mt-1">
+                                        🏆 <strong>Vincitori:</strong> @GetWinnerTeamName()
+                                    </MudText>
+                                }
+                            </MudAlert>
+                        }
+                    }
+                    else
+                    {
+                        <!-- Golden Point Format -->
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.FlashOn" Size="Size.Small" Class="mr-1" />
+                            Golden Point
+                        </MudText>
+
+                        <MudRadioGroup T="string" @bind-SelectedOption="goldenPointWinner">
+                            <MudRadio T="string" Option="Match.Team1.Id" Color="Color.Primary">
+                                <div style="display: flex; align-items: center; padding: 8px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
+                                           Color="@(goldenPointWinner == Match.Team1.Id ? Color.Warning : Color.Default)"
+                                           Class="mr-2" />
+                                    <div>
+                                        <MudText Typo="Typo.body1">@GetTeamDisplayName(Match.Team1)</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @GetTeamSkillInfo(Match.Team1)
+                                        </MudText>
+                                    </div>
+                                </div>
+                            </MudRadio>
+                            <MudRadio T="string" Option="Match.Team2.Id" Color="Color.Primary">
+                                <div style="display: flex; align-items: center; padding: 8px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
+                                           Color="@(goldenPointWinner == Match.Team2.Id ? Color.Warning : Color.Default)"
+                                           Class="mr-2" />
+                                    <div>
+                                        <MudText Typo="Typo.body1">@GetTeamDisplayName(Match.Team2)</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @GetTeamSkillInfo(Match.Team2)
+                                        </MudText>
+                                    </div>
+                                </div>
+                            </MudRadio>
+                        </MudRadioGroup>
+
+                        @if (!string.IsNullOrEmpty(goldenPointWinner))
+                        {
+                            <MudAlert Severity="Severity.Success" Class="mt-3">
+                                <MudText>
+                                    🏆 <strong>Vincitore Golden Point:</strong> @GetGoldenPointWinnerName()
+                                </MudText>
+                            </MudAlert>
+                        }
+                    }
+                </MudForm>
+            }
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="OnCancel" Variant="Variant.Text">
+            Annulla
+        </MudButton>
+        @if (Match?.Status == MatchStatus.Completed)
+        {
+            <MudButton OnClick="HandleClearResults" 
+                       Variant="Variant.Text" 
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.Clear">
+                Cancella Risultati
+            </MudButton>
+        }
+        <MudButton OnClick="HandleSave" 
+                   Variant="Variant.Filled" 
+                   Color="Color.Primary"
+                   Disabled="@(!CanSave())"
+                   StartIcon="@Icons.Material.Filled.Save">
+            Salva Risultati
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public Match? Match { get; set; }
+    [Parameter] public EventCallback<(Match match, List<MatchSetScore> scores, string? winnerTeamId)> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private MudForm form = null!;
+    private bool isFormValid = true;
+    private const int maxSets = 3;
+    
+    private List<ScoreInput> scores = new();
+    private string goldenPointWinner = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (Match != null)
+        {
+            InitializeScores();
+        }
+    }
+
+    private void InitializeScores()
+    {
+        if (Match == null) return;
+
+        scores.Clear();
+        goldenPointWinner = string.Empty;
+
+        if (Match.MatchFormat == MatchFormat.BestOfThree)
+        {
+            // Inizializza array per i set
+            for (int i = 0; i < maxSets; i++)
+            {
+                var existingScore = Match.Scores.FirstOrDefault(s => s.SetNumber == i + 1);
+                scores.Add(new ScoreInput
+                {
+                    SetNumber = i + 1,
+                    Team1Score = existingScore?.Team1Score as int?,
+                    Team2Score = existingScore?.Team2Score as int?
+                });
+            }
+        }
+        else if (Match.MatchFormat == MatchFormat.GoldenPoint)
+        {
+            goldenPointWinner = Match.WinnerTeamId ?? string.Empty;
+        }
+    }
+
+    private bool ShouldShowThirdSet()
+    {
+        if (scores.Count < 2) return false;
+        
+        var team1Sets = 0;
+        var team2Sets = 0;
+
+        for (int i = 0; i < 2; i++)
+        {
+            if (scores[i].Team1Score.HasValue && scores[i].Team2Score.HasValue)
+            {
+                if (scores[i].Team1Score > scores[i].Team2Score) team1Sets++;
+                else if (scores[i].Team2Score > scores[i].Team1Score) team2Sets++;
+            }
+        }
+
+        return team1Sets == 1 && team2Sets == 1;
+    }
+
+    private bool IsSetWinner(int setIndex, string teamId)
+    {
+        if (setIndex >= scores.Count) return false;
+        
+        var score = scores[setIndex];
+        if (!score.Team1Score.HasValue || !score.Team2Score.HasValue) return false;
+
+        if (teamId == Match?.Team1.Id)
+            return score.Team1Score > score.Team2Score;
+        else if (teamId == Match?.Team2.Id)
+            return score.Team2Score > score.Team1Score;
+        
+        return false;
+    }
+
+    private int GetSetsWonCount(string teamId)
+    {
+        return scores.Count(s => IsSetWinner(scores.IndexOf(s), teamId));
+    }
+
+    private string GetWinnerTeamId()
+    {
+        if (Match?.MatchFormat == MatchFormat.GoldenPoint)
+        {
+            return goldenPointWinner;
+        }
+
+        var team1Sets = GetSetsWonCount(Match?.Team1.Id ?? "");
+        var team2Sets = GetSetsWonCount(Match?.Team2.Id ?? "");
+
+        if (team1Sets >= 2) return Match?.Team1.Id ?? "";
+        if (team2Sets >= 2) return Match?.Team2.Id ?? "";
+        
+        return string.Empty;
+    }
+
+    private string GetWinnerTeamName()
+    {
+        var winnerId = GetWinnerTeamId();
+        if (string.IsNullOrEmpty(winnerId) || Match == null) return "";
+
+        if (winnerId == Match.Team1.Id) return GetTeamDisplayName(Match.Team1);
+        if (winnerId == Match.Team2.Id) return GetTeamDisplayName(Match.Team2);
+        
+        return "";
+    }
+
+    private string GetGoldenPointWinnerName()
+    {
+        if (string.IsNullOrEmpty(goldenPointWinner) || Match == null) return "";
+
+        if (goldenPointWinner == Match.Team1.Id) return GetTeamDisplayName(Match.Team1);
+        if (goldenPointWinner == Match.Team2.Id) return GetTeamDisplayName(Match.Team2);
+        
+        return "";
+    }
+
+    private bool HasValidScores()
+    {
+        if (Match?.MatchFormat == MatchFormat.GoldenPoint)
+        {
+            return !string.IsNullOrEmpty(goldenPointWinner);
+        }
+
+        return scores.Take(2).Any(s => s.Team1Score.HasValue && s.Team2Score.HasValue);
+    }
+
+    private bool CanSave()
+    {
+        if (Match?.MatchFormat == MatchFormat.GoldenPoint)
+        {
+            return !string.IsNullOrEmpty(goldenPointWinner);
+        }
+
+        // Per Best of Three, deve esserci almeno un vincitore chiaro
+        return !string.IsNullOrEmpty(GetWinnerTeamId());
+    }
+
+    private Severity GetResultSeverity()
+    {
+        var winnerId = GetWinnerTeamId();
+        return string.IsNullOrEmpty(winnerId) ? Severity.Info : Severity.Success;
+    }
+
+    private string GetTeamClass(string teamId)
+    {
+        var winnerId = GetWinnerTeamId();
+        return !string.IsNullOrEmpty(winnerId) && teamId == winnerId ? "font-weight-bold mud-success-text" : "";
+    }
+
+    private string GetTeamDisplayName(Team team)
+    {
+        var player1Name = team.Player1.Nickname ?? team.Player1.Name;
+        var player2Name = team.Player2.Nickname ?? team.Player2.Name;
+        return $"{player1Name} / {player2Name}";
+    }
+
+    private string GetTeamShortName(Team team)
+    {
+        var player1Initial = (team.Player1.Nickname ?? team.Player1.Name).Substring(0, 1);
+        var player2Initial = (team.Player2.Nickname ?? team.Player2.Name).Substring(0, 1);
+        return $"{player1Initial}.{player2Initial}";
+    }
+
+    private string GetTeamSkillInfo(Team team)
+    {
+        return $"{GetSkillLevelShort(team.Player1.SkillLevel)} + {GetSkillLevelShort(team.Player2.SkillLevel)}";
+    }
+
+    private string GetSkillLevelShort(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "A",
+            SkillLevel.FasciaB => "B",
+            SkillLevel.Unassigned => "?",
+            _ => "?"
+        };
+    }
+
+    private async Task HandleSave()
+    {
+        if (!CanSave() || Match == null) return;
+
+        var matchScores = new List<MatchSetScore>();
+        var winnerTeamId = GetWinnerTeamId();
+
+        if (Match.MatchFormat == MatchFormat.BestOfThree)
+        {
+            // Filtra solo i set con punteggi validi
+            matchScores = scores
+                .Where(s => s.Team1Score.HasValue && s.Team2Score.HasValue)
+                .Select(s => new MatchSetScore
+                {
+                    SetNumber = s.SetNumber,
+                    Team1Score = s.Team1Score!.Value,
+                    Team2Score = s.Team2Score!.Value
+                })
+                .ToList();
+        }
+        else if (Match.MatchFormat == MatchFormat.GoldenPoint)
+        {
+            // Per Golden Point, crea un score simbolico
+            matchScores.Add(new MatchSetScore
+            {
+                SetNumber = 1,
+                Team1Score = goldenPointWinner == Match.Team1.Id ? "GP" : "",
+                Team2Score = goldenPointWinner == Match.Team2.Id ? "GP" : ""
+            });
+        }
+
+        await OnSave.InvokeAsync((Match, matchScores, winnerTeamId));
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task HandleClearResults()
+    {
+        if (Match == null) return;
+
+        await OnSave.InvokeAsync((Match, new List<MatchSetScore>(), null));
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private class ScoreInput
+    {
+        public int SetNumber { get; set; }
+        public int? Team1Score { get; set; }
+        public int? Team2Score { get; set; }
+    }
+}

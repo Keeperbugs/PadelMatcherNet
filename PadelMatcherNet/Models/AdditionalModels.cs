@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace PadelMatcherNet.Models
 {
@@ -23,9 +24,11 @@ namespace PadelMatcherNet.Models
         public DateTime JoinedAt { get; set; }
 
         // Navigazione
+        [JsonIgnore]
         [ForeignKey("PlayerId")]
         public virtual Player Player { get; set; } = null!;
 
+        [JsonIgnore]
         [ForeignKey("TournamentId")]
         public virtual Tournament Tournament { get; set; } = null!;
     }
@@ -74,9 +77,11 @@ namespace PadelMatcherNet.Models
         public DateTime UpdatedAt { get; set; }
 
         // Navigazione
+        [JsonIgnore]
         [ForeignKey("PlayerId")]
         public virtual Player Player { get; set; } = null!;
 
+        [JsonIgnore]
         [ForeignKey("TournamentId")]
         public virtual Tournament Tournament { get; set; } = null!;
 
@@ -121,6 +126,7 @@ namespace PadelMatcherNet.Models
         public DateTime UpdatedAt { get; set; }
 
         // Navigazione
+        [JsonIgnore]
         [ForeignKey("CurrentTournamentId")]
         public virtual Tournament? CurrentTournament { get; set; }
     }

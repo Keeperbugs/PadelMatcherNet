@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace PadelMatcherNet.Models
 {
@@ -133,6 +134,7 @@ namespace PadelMatcherNet.Models
         }
 
         // Navigazione
+        [JsonIgnore]
         [ForeignKey("TournamentId")]
         public virtual Tournament Tournament { get; set; } = null!;
 

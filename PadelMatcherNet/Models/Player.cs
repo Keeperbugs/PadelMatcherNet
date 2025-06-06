@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace PadelMatcherNet.Models
 {
@@ -72,7 +73,9 @@ namespace PadelMatcherNet.Models
         public double SetRatio => SetsLost > 0 ? (double)SetsWon / SetsLost : (SetsWon > 0 ? double.PositiveInfinity : 0);
 
         // Navigazione
+        [JsonIgnore]
         public virtual ICollection<PlayerTournament> PlayerTournaments { get; set; } = new List<PlayerTournament>();
+        [JsonIgnore]
         public virtual ICollection<PlayerStats> PlayerStats { get; set; } = new List<PlayerStats>();
     }
 }

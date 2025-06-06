@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace PadelMatcherNet.Models
 {
@@ -82,8 +83,11 @@ namespace PadelMatcherNet.Models
         public bool CanStart => CurrentPlayerCount >= 4;
 
         // Navigazione
+        [JsonIgnore]
         public virtual ICollection<PlayerTournament> PlayerTournaments { get; set; } = new List<PlayerTournament>();
+        [JsonIgnore]
         public virtual ICollection<Match> Matches { get; set; } = new List<Match>();
+        [JsonIgnore]
         public virtual ICollection<PlayerStats> PlayerStats { get; set; } = new List<PlayerStats>();
     }
 }
