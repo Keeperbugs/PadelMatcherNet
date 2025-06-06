@@ -35,6 +35,7 @@
         <MatchesList 
             Matches="FilteredMatches"
             OnEditResults="OnEditResults"
+            OnEdit="OnEditMatch"
             OnDelete="OnDeleteMatch" />
     </MudItem>
 </MudGrid>
@@ -48,6 +49,7 @@
     [Parameter] public EventCallback OnClearPending { get; set; }
     [Parameter] public EventCallback OnRecalculateStats { get; set; }
     [Parameter] public EventCallback<Match> OnEditResults { get; set; }
+    [Parameter] public EventCallback<Match> OnEditMatch { get; set; }  // AGGIUNTO
     [Parameter] public EventCallback<Match> OnDeleteMatch { get; set; }
     [Parameter] public EventCallback<(int? Round, MatchStatus? Status)> OnFilterChanged { get; set; }
     

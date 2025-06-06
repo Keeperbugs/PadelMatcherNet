@@ -32,6 +32,7 @@
             OnRecalculateStats="EventCallback.Factory.Create(this, RecalculateStats)"
             OnGenerateMatches="EventCallback.Factory.Create(this, ShowGenerateMatchesDialog)"
             OnEditResults="EventCallback.Factory.Create<Match>(this, ShowResultsDialog)"
+            OnEditMatch="EventCallback.Factory.Create<Match>(this, ShowEditMatchDialog)"
             OnDeleteMatch="EventCallback.Factory.Create<Match>(this, DeleteMatch)"
             OnFilterChanged="EventCallback.Factory.Create<(int? Round, MatchStatus? Status)>(this, ApplyFilters)"
         />
@@ -56,6 +57,16 @@
         OnCancel="() => showResultsDialog = false" />
 }
 
+@if (showEditDialog && selectedMatch != null)
+{
+    <MatchEditDialog 
+        @bind-Visible="showEditDialog"
+        Match="selectedMatch"
+        Players="tournamentPlayers"
+        OnSave="SaveMatchFromDialog"
+        OnCancel="() => showEditDialog = false" />
+}
+
 @code {
     private bool isLoading = true;
     private Tournament? currentTournament = null;
@@ -64,9 +75,10 @@
     private List<Player> tournamentPlayers = new();
     private bool showGenerateDialog = false;
     private bool showResultsDialog = false;
+    private bool showEditDialog = false;
     private Match? selectedMatch = null;
     
-    // AGGIUNTE: Variabili per i filtri che mancavano
+    // Variabili per i filtri
     private int? roundFilter = null;
     private MatchStatus? statusFilter = null;
 
@@ -82,6 +94,13 @@
     {
         selectedMatch = match;
         showResultsDialog = true;
+        StateHasChanged();
+    }
+
+    private void ShowEditMatchDialog(Match match)
+    {
+        selectedMatch = match;
+        showEditDialog = true;
         StateHasChanged();
     }
 
@@ -110,7 +129,7 @@
             {
                 matches = await MatchService.GetMatchesByTournamentAsync(currentTournament.Id);
                 tournamentPlayers = await TournamentService.GetTournamentPlayersAsync(currentTournament.Id);
-                ApplyFilters((null, null)); // CORREZIONE: Chiamata con tupla
+                ApplyFilters((null, null));
             }
         }
         finally
@@ -120,10 +139,8 @@
         }
     }
 
-    // CORREZIONE: Metodo ApplyFilters con firma corretta
     private void ApplyFilters((int? Round, MatchStatus? Status) filterArgs)
     {
-        // Se non vengono passati parametri, usa i valori correnti
         roundFilter = filterArgs.Round ?? roundFilter;
         statusFilter = filterArgs.Status ?? statusFilter;
         
@@ -151,6 +168,15 @@
         await MatchService.SaveMatchResultsAsync(resultData.match.Id, resultData.scores, resultData.winnerTeamId);
         await LoadData();
         showResultsDialog = false;
+    }
+
+    private async Task SaveMatchFromDialog(Match updatedMatch)
+    {
+        if (updatedMatch == null) return;
+        
+        await MatchService.UpdateMatchAsync(updatedMatch);
+        await LoadData();
+        showEditDialog = false;
     }
 
     private async Task ClearPendingMatches()

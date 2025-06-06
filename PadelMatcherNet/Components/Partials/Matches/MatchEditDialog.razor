@@ -1,0 +1,371 @@
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+
+<MudDialog @bind-Visible="Visible" Options="@(new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium })">
+    <DialogContent>
+        <MudContainer Style="max-width: 600px;">
+            @if (Match != null)
+            {
+                <MudText Typo="Typo.h6" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                    Modifica Partita
+                </MudText>
+
+                <MudForm @ref="form" @bind-IsValid="@isFormValid">
+                    <!-- Informazioni generali -->
+                    <MudPaper Class="pa-3 mb-4" Style="background-color: var(--mud-palette-background-grey);">
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudNumericField @bind-Value="editedMatch.Round"
+                                               T="int"
+                                               Label="Round"
+                                               Min="1"
+                                               Max="20"
+                                               Variant="Variant.Outlined"
+                                               Required="true" />
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudTextField @bind-Value="editedMatch.Court"
+                                            Label="Campo"
+                                            Variant="Variant.Outlined"
+                                            Placeholder="es. Campo 1" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudSelect T="MatchFormat" @bind-Value="editedMatch.MatchFormat"
+                                         Label="Formato Partita"
+                                         Variant="Variant.Outlined"
+                                         Required="true">
+                                    <MudSelectItem Value="@MatchFormat.BestOfThree">Al meglio di 3 set</MudSelectItem>
+                                    <MudSelectItem Value="@MatchFormat.GoldenPoint">Golden Point</MudSelectItem>
+                                </MudSelect>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Team 1 -->
+                    <MudPaper Class="pa-3 mb-3">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" Class="mr-1" />
+                            Team 1
+                        </MudText>
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudSelect T="string" @bind-Value="selectedPlayer1Team1"
+                                         Label="Giocatore 1"
+                                         Variant="Variant.Outlined"
+                                         Required="true">
+                                    <MudSelectItem T="string" Value="@("")">Seleziona giocatore...</MudSelectItem>
+                                    @foreach (var player in availablePlayers)
+                                    {
+                                        <MudSelectItem T="string" Value="@player.Id">
+                                            @player.DisplayName (@GetSkillLevel(player.SkillLevel))
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudSelect T="string" @bind-Value="selectedPlayer2Team1"
+                                         Label="Giocatore 2"
+                                         Variant="Variant.Outlined"
+                                         Required="true">
+                                    <MudSelectItem T="string" Value="@("")">Seleziona giocatore...</MudSelectItem>
+                                    @foreach (var player in GetAvailablePlayersForTeam1Player2())
+                                    {
+                                        <MudSelectItem T="string" Value="@player.Id">
+                                            @player.DisplayName (@GetSkillLevel(player.SkillLevel))
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            @if (!string.IsNullOrEmpty(selectedPlayer1Team1) && !string.IsNullOrEmpty(selectedPlayer2Team1))
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        <strong>Team 1:</strong> @GetPlayerName(selectedPlayer1Team1) / @GetPlayerName(selectedPlayer2Team1)
+                                        <br />
+                                        <strong>Livello combinato:</strong> @GetTeamSkillLevel(selectedPlayer1Team1, selectedPlayer2Team1)
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Team 2 -->
+                    <MudPaper Class="pa-3 mb-3">
+                        <MudText Typo="Typo.subtitle1" Class="mb-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" Class="mr-1" />
+                            Team 2
+                        </MudText>
+                        <MudGrid>
+                            <MudItem xs="6">
+                                <MudSelect T="string" @bind-Value="selectedPlayer1Team2"
+                                         Label="Giocatore 1"
+                                         Variant="Variant.Outlined"
+                                         Required="true">
+                                    <MudSelectItem T="string" Value="@("")">Seleziona giocatore...</MudSelectItem>
+                                    @foreach (var player in GetAvailablePlayersForTeam2())
+                                    {
+                                        <MudSelectItem T="string" Value="@player.Id">
+                                            @player.DisplayName (@GetSkillLevel(player.SkillLevel))
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            <MudItem xs="6">
+                                <MudSelect T="string" @bind-Value="selectedPlayer2Team2"
+                                         Label="Giocatore 2"
+                                         Variant="Variant.Outlined"
+                                         Required="true">
+                                    <MudSelectItem T="string" Value="@("")">Seleziona giocatore...</MudSelectItem>
+                                    @foreach (var player in GetAvailablePlayersForTeam2Player2())
+                                    {
+                                        <MudSelectItem T="string" Value="@player.Id">
+                                            @player.DisplayName (@GetSkillLevel(player.SkillLevel))
+                                        </MudSelectItem>
+                                    }
+                                </MudSelect>
+                            </MudItem>
+                            @if (!string.IsNullOrEmpty(selectedPlayer1Team2) && !string.IsNullOrEmpty(selectedPlayer2Team2))
+                            {
+                                <MudItem xs="12">
+                                    <MudAlert Severity="Severity.Info" Dense="true">
+                                        <strong>Team 2:</strong> @GetPlayerName(selectedPlayer1Team2) / @GetPlayerName(selectedPlayer2Team2)
+                                        <br />
+                                        <strong>Livello combinato:</strong> @GetTeamSkillLevel(selectedPlayer1Team2, selectedPlayer2Team2)
+                                    </MudAlert>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+
+                    <!-- Validazione teams -->
+                    @if (HasValidationErrors())
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-3">
+                            @foreach (var error in GetValidationErrors())
+                            {
+                                <MudText>• @error</MudText>
+                            }
+                        </MudAlert>
+                    }
+                </MudForm>
+            }
+        </MudContainer>
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="OnCancel" Variant="Variant.Text">
+            Annulla
+        </MudButton>
+        <MudButton OnClick="HandleSave" 
+                   Variant="Variant.Filled" 
+                   Color="Color.Primary"
+                   Disabled="@(!CanSave())"
+                   StartIcon="@Icons.Material.Filled.Save">
+            Salva Modifiche
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public Match? Match { get; set; }
+    [Parameter] public List<Player> Players { get; set; } = new();
+    [Parameter] public EventCallback<Match> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private MudForm form = null!;
+    private bool isFormValid = true;
+    private Match editedMatch = new();
+    private List<Player> availablePlayers = new();
+    
+    private string selectedPlayer1Team1 = string.Empty;
+    private string selectedPlayer2Team1 = string.Empty;
+    private string selectedPlayer1Team2 = string.Empty;
+    private string selectedPlayer2Team2 = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (Match != null && Players?.Any() == true)
+        {
+            InitializeEdit();
+        }
+    }
+
+    private void InitializeEdit()
+    {
+        if (Match == null) return;
+
+        // Copia i dati della partita
+        editedMatch = new Match
+        {
+            Id = Match.Id,
+            Round = Match.Round,
+            Court = Match.Court,
+            MatchFormat = Match.MatchFormat,
+            Status = Match.Status,
+            TournamentId = Match.TournamentId
+        };
+
+        // Inizializza i giocatori selezionati
+        selectedPlayer1Team1 = Match.Team1.Player1.Id;
+        selectedPlayer2Team1 = Match.Team1.Player2.Id;
+        selectedPlayer1Team2 = Match.Team2.Player1.Id;
+        selectedPlayer2Team2 = Match.Team2.Player2.Id;
+
+        // Copia la lista dei giocatori disponibili
+        availablePlayers = Players.ToList();
+    }
+
+    private List<Player> GetAvailablePlayersForTeam1Player2()
+    {
+        return availablePlayers.Where(p => p.Id != selectedPlayer1Team1).ToList();
+    }
+
+    private List<Player> GetAvailablePlayersForTeam2()
+    {
+        var usedInTeam1 = new[] { selectedPlayer1Team1, selectedPlayer2Team1 };
+        return availablePlayers.Where(p => !usedInTeam1.Contains(p.Id)).ToList();
+    }
+
+    private List<Player> GetAvailablePlayersForTeam2Player2()
+    {
+        var usedPlayers = new[] { selectedPlayer1Team1, selectedPlayer2Team1, selectedPlayer1Team2 };
+        return availablePlayers.Where(p => !usedPlayers.Contains(p.Id)).ToList();
+    }
+
+    private string GetPlayerName(string playerId)
+    {
+        var player = availablePlayers.FirstOrDefault(p => p.Id == playerId);
+        return player?.DisplayName ?? "Sconosciuto";
+    }
+
+    private string GetSkillLevel(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "Fascia A",
+            SkillLevel.FasciaB => "Fascia B",
+            SkillLevel.Unassigned => "Non assegnato",
+            _ => "Sconosciuto"
+        };
+    }
+
+    private string GetTeamSkillLevel(string player1Id, string player2Id)
+    {
+        var player1 = availablePlayers.FirstOrDefault(p => p.Id == player1Id);
+        var player2 = availablePlayers.FirstOrDefault(p => p.Id == player2Id);
+        
+        if (player1 == null || player2 == null) return "Sconosciuto";
+        
+        return $"{GetSkillLevel(player1.SkillLevel)} + {GetSkillLevel(player2.SkillLevel)}";
+    }
+
+    private bool HasValidationErrors()
+    {
+        return GetValidationErrors().Any();
+    }
+
+    private List<string> GetValidationErrors()
+    {
+        var errors = new List<string>();
+
+        // Controlla che tutti i giocatori siano selezionati
+        if (string.IsNullOrEmpty(selectedPlayer1Team1) || string.IsNullOrEmpty(selectedPlayer2Team1) ||
+            string.IsNullOrEmpty(selectedPlayer1Team2) || string.IsNullOrEmpty(selectedPlayer2Team2))
+        {
+            errors.Add("Tutti i giocatori devono essere selezionati");
+        }
+
+        // Controlla che non ci siano giocatori duplicati
+        var allSelected = new[] { selectedPlayer1Team1, selectedPlayer2Team1, selectedPlayer1Team2, selectedPlayer2Team2 };
+        var duplicates = allSelected.Where(p => !string.IsNullOrEmpty(p))
+                                  .GroupBy(p => p)
+                                  .Where(g => g.Count() > 1)
+                                  .Select(g => g.Key);
+
+        if (duplicates.Any())
+        {
+            errors.Add("Un giocatore non può essere selezionato più volte");
+        }
+
+        // Controlla che i giocatori dello stesso team abbiano lo stesso livello (opzionale)
+        if (!string.IsNullOrEmpty(selectedPlayer1Team1) && !string.IsNullOrEmpty(selectedPlayer2Team1))
+        {
+            var p1Level = availablePlayers.FirstOrDefault(p => p.Id == selectedPlayer1Team1)?.SkillLevel;
+            var p2Level = availablePlayers.FirstOrDefault(p => p.Id == selectedPlayer2Team1)?.SkillLevel;
+            
+            if (p1Level != p2Level && p1Level != SkillLevel.Unassigned && p2Level != SkillLevel.Unassigned)
+            {
+                errors.Add("I giocatori del Team 1 hanno livelli diversi. Conferma se vuoi procedere.");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(selectedPlayer1Team2) && !string.IsNullOrEmpty(selectedPlayer2Team2))
+        {
+            var p1Level = availablePlayers.FirstOrDefault(p => p.Id == selectedPlayer1Team2)?.SkillLevel;
+            var p2Level = availablePlayers.FirstOrDefault(p => p.Id == selectedPlayer2Team2)?.SkillLevel;
+            
+            if (p1Level != p2Level && p1Level != SkillLevel.Unassigned && p2Level != SkillLevel.Unassigned)
+            {
+                errors.Add("I giocatori del Team 2 hanno livelli diversi. Conferma se vuoi procedere.");
+            }
+        }
+
+        return errors;
+    }
+
+    private bool CanSave()
+    {
+        if (!isFormValid) return false;
+        
+        // Controlli base: tutti i giocatori selezionati e nessun duplicato
+        var allSelected = new[] { selectedPlayer1Team1, selectedPlayer2Team1, selectedPlayer1Team2, selectedPlayer2Team2 };
+        
+        if (allSelected.Any(string.IsNullOrEmpty)) return false;
+        
+        var unique = allSelected.Distinct().Count();
+        return unique == 4;
+    }
+
+    private async Task HandleSave()
+    {
+        if (!CanSave() || Match == null) return;
+
+        // Crea i team aggiornati
+        var player1Team1 = availablePlayers.First(p => p.Id == selectedPlayer1Team1);
+        var player2Team1 = availablePlayers.First(p => p.Id == selectedPlayer2Team1);
+        var player1Team2 = availablePlayers.First(p => p.Id == selectedPlayer1Team2);
+        var player2Team2 = availablePlayers.First(p => p.Id == selectedPlayer2Team2);
+
+        var updatedMatch = new Match
+        {
+            Id = editedMatch.Id,
+            Round = editedMatch.Round,
+            Court = editedMatch.Court,
+            MatchFormat = editedMatch.MatchFormat,
+            Status = editedMatch.Status,
+            TournamentId = editedMatch.TournamentId,
+            Team1 = new Team
+            {
+                Id = Match.Team1.Id, // Mantieni l'ID esistente se disponibile
+                Player1 = player1Team1,
+                Player2 = player2Team1
+            },
+            Team2 = new Team
+            {
+                Id = Match.Team2.Id, // Mantieni l'ID esistente se disponibile
+                Player1 = player1Team2,
+                Player2 = player2Team2
+            },
+            // Mantieni altri dati esistenti
+            Scores = Match.Scores,
+            WinnerTeamId = Match.WinnerTeamId
+        };
+
+        await OnSave.InvokeAsync(updatedMatch);
+        await VisibleChanged.InvokeAsync(false);
+    }
+}

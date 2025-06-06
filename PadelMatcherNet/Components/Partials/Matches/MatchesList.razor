@@ -11,6 +11,7 @@
             <MudItem xs="12" sm="6" lg="4">
                 <MatchCard Match="match"
                          OnEditResults="() => OnEditResults.InvokeAsync(match)"
+                         OnEdit="() => OnEdit.InvokeAsync(match)"
                          OnDelete="() => OnDelete.InvokeAsync(match)" />
             </MudItem>
         }
@@ -34,5 +35,6 @@ else
     [Parameter] public IEnumerable<Match>? Matches { get; set; }
     [Parameter] public bool IsEmptyWithoutFilters { get; set; }
     [Parameter] public EventCallback<Match> OnEditResults { get; set; }
+    [Parameter] public EventCallback<Match> OnEdit { get; set; }  // AGGIUNTO
     [Parameter] public EventCallback<Match> OnDelete { get; set; }
 }
