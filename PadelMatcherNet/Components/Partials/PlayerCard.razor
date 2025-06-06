@@ -1,0 +1,119 @@
+@using PadelMatcherNet.Models
+
+<MudCard>
+    <MudCardHeader>
+        <CardHeaderAvatar>
+            <MudAvatar Color="GetSkillLevelColor(Player.SkillLevel)" Size="Size.Large">
+                @GetPlayerInitials()
+            </MudAvatar>
+        </CardHeaderAvatar>
+        <CardHeaderContent>
+            <MudText Typo="Typo.h6">@Player.DisplayName</MudText>
+            @if (!string.IsNullOrEmpty(Player.Nickname))
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @Player.FullName
+                </MudText>
+            }
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small">
+                <MudMenuItem OnClick="OnEdit">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                        Modifica
+                    </div>
+                </MudMenuItem>
+                <MudMenuItem OnClick="OnDelete">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" />
+                        Elimina
+                    </div>
+                </MudMenuItem>
+            </MudMenu>
+        </CardHeaderActions>
+    </MudCardHeader>
+    
+    <MudCardContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudChip T="string" Size="Size.Small" Color="GetSkillLevelColor(Player.SkillLevel)">
+                    @GetSkillLevelText(Player.SkillLevel)
+                </MudChip>
+            </MudItem>
+            
+            @if (!string.IsNullOrEmpty(Player.Contact))
+            {
+                <MudItem xs="12">
+                    <MudText Typo="Typo.body2">
+                        <MudIcon Icon="@Icons.Material.Filled.ContactPhone" Size="Size.Small" Class="mr-1" />
+                        @Player.Contact
+                    </MudText>
+                </MudItem>
+            }
+            
+            <!-- Statistiche rapide -->
+            <MudItem xs="12" Class="mt-2">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Statistiche</MudText>
+                <MudGrid>
+                    <MudItem xs="4" Class="text-center">
+                        <MudText Typo="Typo.h6" Color="Color.Primary">@Player.Points</MudText>
+                        <MudText Typo="Typo.caption">Punti</MudText>
+                    </MudItem>
+                    <MudItem xs="4" Class="text-center">
+                        <MudText Typo="Typo.h6" Color="Color.Success">@Player.MatchesWon</MudText>
+                        <MudText Typo="Typo.caption">Vittorie</MudText>
+                    </MudItem>
+                    <MudItem xs="4" Class="text-center">
+                        <MudText Typo="Typo.h6">@Player.MatchesPlayed</MudText>
+                        <MudText Typo="Typo.caption">Partite</MudText>
+                    </MudItem>
+                </MudGrid>
+                
+                @if (Player.MatchesPlayed > 0)
+                {
+                    <MudProgressLinear Color="Color.Success" 
+                                      Value="Player.WinRate" 
+                                      Class="mt-2">
+                        <MudText Typo="Typo.body2">
+                            Win Rate: @Player.WinRate.ToString("F1")%
+                        </MudText>
+                    </MudProgressLinear>
+                }
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired] public Player Player { get; set; } = null!;
+    [Parameter] public EventCallback OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private string GetPlayerInitials()
+    {
+        return $"{Player.Name.FirstOrDefault()}{Player.Surname.FirstOrDefault()}".ToUpper();
+    }
+
+    private Color GetSkillLevelColor(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => Color.Success,
+            SkillLevel.FasciaB => Color.Info,
+            SkillLevel.Unassigned => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private string GetSkillLevelText(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "Fascia A",
+            SkillLevel.FasciaB => "Fascia B",
+            SkillLevel.Unassigned => "Non Assegnato",
+            _ => "Sconosciuto"
+        };
+    }
+}

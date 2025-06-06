@@ -1,0 +1,198 @@
+@page "/players"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+@inject IPlayerService PlayerService
+@inject ITournamentService TournamentService
+
+<PageTitle>Gestione Giocatori</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Gestione Giocatori</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <!-- Header con stats e azioni -->
+            <MudItem xs="12">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudGrid Align="Align.Center">
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.h6">
+                                Totale Giocatori: @players.Count
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" Class="text-right">
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="Color.Primary" 
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="ShowAddPlayerDialog">
+                                Aggiungi Giocatore
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Filtri -->
+            <MudItem xs="12">
+                <PlayerFilters SearchTerm="@searchTerm"
+                              SearchTermChanged="@((value) => { searchTerm = value; ApplyFilters(); })"
+                              SkillLevelFilter="@skillLevelFilter"
+                              SkillLevelFilterChanged="@((value) => { skillLevelFilter = value; ApplyFilters(); })" />
+            </MudItem>
+
+            <!-- Lista giocatori -->
+            <MudItem xs="12">
+                @if (filteredPlayers.Any())
+                {
+                    <MudGrid>
+                        @foreach (var player in filteredPlayers)
+                        {
+                            <MudItem xs="12" sm="6" md="4" lg="3">
+                                @* Partial component per la card giocatore *@
+                                <PlayerCard Player="player" 
+                                           OnEdit="() => ShowEditPlayerDialog(player)"
+                                           OnDelete="() => DeletePlayer(player)" />
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">
+                        @if (string.IsNullOrEmpty(searchTerm) && skillLevelFilter == null)
+                        {
+                            <text>Nessun giocatore trovato. Inizia aggiungendo il primo giocatore!</text>
+                        }
+                        else
+                        {
+                            <text>Nessun giocatore corrisponde ai filtri di ricerca.</text>
+                        }
+                    </MudAlert>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@* Dialog per aggiunta/modifica giocatore *@
+<PlayerFormDialog IsVisible="@showPlayerDialog"
+                  IsVisibleChanged="@((value) => showPlayerDialog = value)"
+                  Player="@selectedPlayer"
+                  OnSave="@SavePlayer"
+                  OnCancel="@CancelPlayerDialog" />
+
+@code {
+    private bool isLoading = true;
+    private List<Player> players = new();
+    private List<Player> filteredPlayers = new();
+    
+    // Filtri
+    private string searchTerm = string.Empty;
+    private SkillLevel? skillLevelFilter = null;
+    
+    // Dialog
+    private bool showPlayerDialog = false;
+    private Player? selectedPlayer = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlayers();
+    }
+
+    private async Task LoadPlayers()
+    {
+        isLoading = true;
+        try
+        {
+            players = await PlayerService.GetAllPlayersAsync();
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            // TODO: Gestire l'errore
+            Console.WriteLine($"Errore caricamento giocatori: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredPlayers = players.Where(p => 
+            (string.IsNullOrEmpty(searchTerm) || 
+             p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             p.Surname.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+             (p.Nickname != null && p.Nickname.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) &&
+            (skillLevelFilter == null || p.SkillLevel == skillLevelFilter)
+        ).ToList();
+        
+        StateHasChanged();
+    }
+
+    private void ShowAddPlayerDialog()
+    {
+        selectedPlayer = null;
+        showPlayerDialog = true;
+    }
+
+    private void ShowEditPlayerDialog(Player player)
+    {
+        selectedPlayer = player;
+        showPlayerDialog = true;
+    }
+
+    private async Task SavePlayer(Player player)
+    {
+        try
+        {
+            if (selectedPlayer == null)
+            {
+                // Nuovo giocatore
+                await PlayerService.AddPlayerAsync(player);
+            }
+            else
+            {
+                // Modifica giocatore esistente
+                player.Id = selectedPlayer.Id;
+                await PlayerService.UpdatePlayerAsync(player);
+            }
+            
+            await LoadPlayers();
+            showPlayerDialog = false;
+        }
+        catch (Exception ex)
+        {
+            // TODO: Mostrare errore all'utente
+            Console.WriteLine($"Errore salvataggio giocatore: {ex.Message}");
+        }
+    }
+
+    private void CancelPlayerDialog()
+    {
+        showPlayerDialog = false;
+        selectedPlayer = null;
+    }
+
+    private async Task DeletePlayer(Player player)
+    {
+        // TODO: Aggiungere dialog di conferma
+        try
+        {
+            await PlayerService.DeletePlayerAsync(player.Id);
+            await LoadPlayers();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore eliminazione giocatore: {ex.Message}");
+        }
+    }
+}

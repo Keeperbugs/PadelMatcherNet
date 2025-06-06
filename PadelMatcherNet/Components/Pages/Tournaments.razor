@@ -1,0 +1,224 @@
+@page "/tournaments"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+@inject ITournamentService TournamentService
+@inject IPlayerService PlayerService
+@inject ISettingsService SettingsService
+
+<PageTitle>Gestione Tornei</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Gestione Tornei</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            <!-- Header con stats e azioni -->
+            <MudItem xs="12">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.h6">
+                                Tornei: @tournaments.Count
+                            </MudText>
+                            @if (currentTournament != null)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Primary">
+                                    <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" />
+                                    Corrente: @currentTournament.Name
+                                </MudText>
+                            }
+                        </MudItem>
+                        <MudItem xs="12" sm="6" Class="text-right">
+                            <MudButton Variant="Variant.Filled" 
+                                       Color="Color.Primary" 
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="ShowAddTournamentDialog">
+                                Nuovo Torneo
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Filtri stato -->
+            <MudItem xs="12">
+                <TournamentFilters StatusFilter="@statusFilter"
+                                 StatusFilterChanged="@((value) => { statusFilter = value; ApplyFilters(); })" />
+            </MudItem>
+
+            <!-- Lista tornei -->
+            <MudItem xs="12">
+                @if (filteredTournaments.Any())
+                {
+                    <MudGrid>
+                        @foreach (var tournament in filteredTournaments)
+                        {
+                            <MudItem xs="12" sm="6" md="4">
+                                <TournamentCard Tournament="tournament"
+                                              IsCurrentTournament="@(currentTournament?.Id == tournament.Id)"
+                                              OnEdit="() => ShowEditTournamentDialog(tournament)"
+                                              OnDelete="() => DeleteTournament(tournament)"
+                                              OnSelect="() => SelectTournament(tournament)" />
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">
+                        @if (statusFilter == null)
+                        {
+                            <text>Nessun torneo trovato. Crea il primo torneo!</text>
+                        }
+                        else
+                        {
+                            <text>Nessun torneo con stato "@statusFilter" trovato.</text>
+                        }
+                    </MudAlert>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@* Dialog per aggiunta/modifica torneo *@
+<TournamentFormDialog IsVisible="@showTournamentDialog"
+                      IsVisibleChanged="@((bool value) => showTournamentDialog = value)"
+                      Tournament="@selectedTournament"
+                      AvailablePlayers="@allPlayers"
+                      OnSave="@SaveTournament"
+                      OnCancel="@CancelTournamentDialog" />
+
+@code {
+    private bool isLoading = true;
+    private List<Tournament> tournaments = new();
+    private List<Tournament> filteredTournaments = new();
+    private List<Player> allPlayers = new();
+    private Tournament? currentTournament = null;
+    
+    // Filtri
+    private TournamentStatus? statusFilter = null;
+    
+    // Dialog
+    private bool showTournamentDialog = false;
+    private Tournament? selectedTournament = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            var loadTournamentsTask = TournamentService.GetAllTournamentsAsync();
+            var loadPlayersTask = PlayerService.GetAllPlayersAsync();
+            var loadCurrentTournamentTask = TournamentService.GetCurrentTournamentAsync();
+
+            await Task.WhenAll(loadTournamentsTask, loadPlayersTask, loadCurrentTournamentTask);
+
+            tournaments = await loadTournamentsTask;
+            allPlayers = await loadPlayersTask;
+            currentTournament = await loadCurrentTournamentTask;
+            
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore caricamento dati: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredTournaments = tournaments.Where(t => 
+            statusFilter == null || t.Status == statusFilter
+        ).ToList();
+        
+        StateHasChanged();
+    }
+
+    private void ShowAddTournamentDialog()
+    {
+        selectedTournament = null;
+        showTournamentDialog = true;
+    }
+
+    private void ShowEditTournamentDialog(Tournament tournament)
+    {
+        selectedTournament = tournament;
+        showTournamentDialog = true;
+    }
+
+    private async Task SaveTournament(Tournament tournament)
+    {
+        try
+        {
+            if (selectedTournament == null)
+            {
+                // Nuovo torneo
+                await TournamentService.CreateTournamentAsync(tournament);
+            }
+            else
+            {
+                // Modifica torneo esistente
+                tournament.Id = selectedTournament.Id;
+                await TournamentService.UpdateTournamentAsync(tournament);
+            }
+            
+            await LoadData();
+            showTournamentDialog = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore salvataggio torneo: {ex.Message}");
+        }
+    }
+
+    private void CancelTournamentDialog()
+    {
+        showTournamentDialog = false;
+        selectedTournament = null;
+    }
+
+    private async Task SelectTournament(Tournament tournament)
+    {
+        try
+        {
+            await TournamentService.SetCurrentTournamentAsync(tournament.Id);
+            currentTournament = tournament;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore selezione torneo: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteTournament(Tournament tournament)
+    {
+        // TODO: Aggiungere dialog di conferma
+        try
+        {
+            await TournamentService.DeleteTournamentAsync(tournament.Id);
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore eliminazione torneo: {ex.Message}");
+        }
+    }
+}

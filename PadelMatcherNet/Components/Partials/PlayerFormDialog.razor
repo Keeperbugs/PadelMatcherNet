@@ -1,0 +1,155 @@
+@using PadelMatcherNet.Models
+@using System.ComponentModel.DataAnnotations
+
+<MudDialog @bind-Visible="IsVisible" Options="dialogOptions">
+    <DialogContent>
+        <MudContainer Style="max-height: 500px; overflow-y: auto;">
+            <MudText Typo="Typo.h6" Class="mb-4">
+                @(Player == null ? "Aggiungi Nuovo Giocatore" : "Modifica Giocatore")
+            </MudText>
+            
+            <EditForm Model="playerForm" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="playerForm.Name"
+                                     Label="Nome"
+                                     Required="true"
+                                     RequiredError="Il nome è obbligatorio"
+                                     For="@(() => playerForm.Name)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="playerForm.Surname"
+                                     Label="Cognome"
+                                     Required="true"
+                                     RequiredError="Il cognome è obbligatorio"
+                                     For="@(() => playerForm.Surname)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="playerForm.Nickname"
+                                     Label="Nickname (opzionale)"
+                                     For="@(() => playerForm.Nickname)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="playerForm.Contact"
+                                     Label="Contatto (opzionale)"
+                                     Placeholder="Email o telefono"
+                                     For="@(() => playerForm.Contact)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudSelect T="SkillLevel" @bind-Value="playerForm.SkillLevel"
+                                  Label="Fascia di abilità"
+                                  Required="true"
+                                  For="@(() => playerForm.SkillLevel)">
+                            <MudSelectItem T="SkillLevel" Value="SkillLevel.FasciaA">Fascia A (Alto)</MudSelectItem>
+                            <MudSelectItem T="SkillLevel" Value="SkillLevel.FasciaB">Fascia B (Medio/Basso)</MudSelectItem>
+                            <MudSelectItem T="SkillLevel" Value="SkillLevel.Unassigned">Non Assegnato</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+                
+                <MudDivider Class="my-4" />
+                
+                <div style="display: flex; justify-content: end; gap: 8px;">
+                    <MudButton Variant="Variant.Text" OnClick="HandleCancel">
+                        Annulla
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary" 
+                              ButtonType="ButtonType.Submit">
+                        @(Player == null ? "Aggiungi" : "Salva")
+                    </MudButton>
+                </div>
+            </EditForm>
+        </MudContainer>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public Player? Player { get; set; }
+    [Parameter] public EventCallback<Player> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private PlayerFormModel playerForm = new();
+    
+    private DialogOptions dialogOptions = new() 
+    { 
+        MaxWidth = MaxWidth.Small, 
+        FullWidth = true,
+        CloseButton = true
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible)
+        {
+            if (Player != null)
+            {
+                // Modalità modifica
+                playerForm = new PlayerFormModel
+                {
+                    Name = Player.Name,
+                    Surname = Player.Surname,
+                    Nickname = Player.Nickname,
+                    Contact = Player.Contact,
+                    SkillLevel = Player.SkillLevel
+                };
+            }
+            else
+            {
+                // Modalità creazione
+                playerForm = new PlayerFormModel
+                {
+                    SkillLevel = SkillLevel.Unassigned
+                };
+            }
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var player = new Player
+        {
+            Name = playerForm.Name,
+            Surname = playerForm.Surname,
+            Nickname = string.IsNullOrWhiteSpace(playerForm.Nickname) ? null : playerForm.Nickname,
+            Contact = string.IsNullOrWhiteSpace(playerForm.Contact) ? null : playerForm.Contact,
+            SkillLevel = playerForm.SkillLevel
+        };
+
+        await OnSave.InvokeAsync(player);
+    }
+
+    private async Task HandleCancel()
+    {
+        await IsVisibleChanged.InvokeAsync(false);
+        await OnCancel.InvokeAsync();
+    }
+
+    public class PlayerFormModel
+    {
+        [Required(ErrorMessage = "Il nome è obbligatorio")]
+        [StringLength(100, ErrorMessage = "Il nome non può superare i 100 caratteri")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Il cognome è obbligatorio")]
+        [StringLength(100, ErrorMessage = "Il cognome non può superare i 100 caratteri")]
+        public string Surname { get; set; } = string.Empty;
+
+        [StringLength(100, ErrorMessage = "Il nickname non può superare i 100 caratteri")]
+        public string? Nickname { get; set; }
+
+        [StringLength(200, ErrorMessage = "Il contatto non può superare i 200 caratteri")]
+        public string? Contact { get; set; }
+
+        [Required(ErrorMessage = "La fascia di abilità è obbligatoria")]
+        public SkillLevel SkillLevel { get; set; } = SkillLevel.Unassigned;
+    }
+}

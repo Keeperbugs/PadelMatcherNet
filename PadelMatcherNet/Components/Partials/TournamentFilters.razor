@@ -1,0 +1,24 @@
+@using PadelMatcherNet.Models
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Filtri</MudText>
+    
+    <MudGrid>
+        <MudItem xs="12" sm="4">
+            <MudSelect T="TournamentStatus?" Value="@StatusFilter"
+                      ValueChanged="@StatusFilterChanged"
+                      Label="Stato torneo"
+                      Clearable="true">
+                <MudSelectItem T="TournamentStatus?" Value="@((TournamentStatus?)null)">Tutti gli stati</MudSelectItem>
+                <MudSelectItem T="TournamentStatus?" Value="@((TournamentStatus?)TournamentStatus.Draft)">Bozza</MudSelectItem>
+                <MudSelectItem T="TournamentStatus?" Value="@((TournamentStatus?)TournamentStatus.Active)">Attivo</MudSelectItem>
+                <MudSelectItem T="TournamentStatus?" Value="@((TournamentStatus?)TournamentStatus.Completed)">Completato</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter] public TournamentStatus? StatusFilter { get; set; }
+    [Parameter] public EventCallback<TournamentStatus?> StatusFilterChanged { get; set; }
+}

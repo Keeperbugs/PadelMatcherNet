@@ -1,0 +1,95 @@
+@page "/players-simple"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@inject IPlayerService PlayerService
+
+<PageTitle>Players Simple</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Gestione Giocatori (Debug)</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+        <MudText>Caricamento...</MudText>
+    }
+    else if (!string.IsNullOrEmpty(error))
+    {
+        <MudAlert Severity="Severity.Error">
+            Errore: @error
+        </MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4">
+            <MudText Typo="Typo.h6">
+                Totale Giocatori: @players.Count
+            </MudText>
+            <MudButton Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       OnClick="LoadPlayers"
+                       Class="mt-2">
+                Ricarica Giocatori
+            </MudButton>
+        </MudPaper>
+
+        @if (players.Any())
+        {
+            <MudTable Items="players" Hover="true" Striped="true">
+                <HeaderContent>
+                    <MudTh>Nome</MudTh>
+                    <MudTh>Cognome</MudTh>
+                    <MudTh>Nickname</MudTh>
+                    <MudTh>Fascia</MudTh>
+                    <MudTh>Punti</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Nome">@context.Name</MudTd>
+                    <MudTd DataLabel="Cognome">@context.Surname</MudTd>
+                    <MudTd DataLabel="Nickname">@(context.Nickname ?? "-")</MudTd>
+                    <MudTd DataLabel="Fascia">@context.SkillLevel</MudTd>
+                    <MudTd DataLabel="Punti">@context.Points</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">
+                Nessun giocatore trovato.
+            </MudAlert>
+        }
+    }
+</MudContainer>
+
+@code {
+    private bool isLoading = true;
+    private string error = string.Empty;
+    private List<Player> players = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPlayers();
+    }
+
+    private async Task LoadPlayers()
+    {
+        isLoading = true;
+        error = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            players = await PlayerService.GetAllPlayersAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            Console.WriteLine($"Errore caricamento giocatori: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+}

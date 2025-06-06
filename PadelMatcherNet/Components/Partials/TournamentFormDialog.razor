@@ -1,0 +1,340 @@
+@using PadelMatcherNet.Models
+@using System.ComponentModel.DataAnnotations
+
+<MudDialog @bind-Visible="IsVisible" Options="dialogOptions">
+    <DialogContent>
+        <MudContainer Style="max-height: 600px; overflow-y: auto;">
+            <MudText Typo="Typo.h6" Class="mb-4">
+                @(Tournament == null ? "Crea Nuovo Torneo" : "Modifica Torneo")
+            </MudText>
+            
+            <EditForm Model="tournamentForm" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                
+                <!-- Informazioni base -->
+                <MudText Typo="Typo.h6" Class="mb-3">Informazioni Base</MudText>
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="tournamentForm.Name"
+                                     Label="Nome torneo"
+                                     Required="true"
+                                     RequiredError="Il nome è obbligatorio"
+                                     For="@(() => tournamentForm.Name)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="tournamentForm.Description"
+                                     Label="Descrizione (opzionale)"
+                                     Lines="3"
+                                     For="@(() => tournamentForm.Description)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudSelect T="TournamentStatus" @bind-Value="tournamentForm.Status"
+                                  Label="Stato"
+                                  Required="true"
+                                  For="@(() => tournamentForm.Status)">
+                            <MudSelectItem T="TournamentStatus" Value="TournamentStatus.Draft">Bozza</MudSelectItem>
+                            <MudSelectItem T="TournamentStatus" Value="TournamentStatus.Active">Attivo</MudSelectItem>
+                            <MudSelectItem T="TournamentStatus" Value="TournamentStatus.Completed">Completato</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="tournamentForm.MaxPlayers"
+                                        Label="Numero massimo giocatori"
+                                        Min="4"
+                                        Max="32"
+                                        Required="true"
+                                        For="@(() => tournamentForm.MaxPlayers)" />
+                    </MudItem>
+                </MudGrid>
+                
+                <MudDivider Class="my-4" />
+                
+                <!-- Date e configurazione -->
+                <MudText Typo="Typo.h6" Class="mb-3">Configurazione</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="tournamentForm.StartDate"
+                                      Label="Data inizio (opzionale)"
+                                      For="@(() => tournamentForm.StartDate)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudDatePicker @bind-Date="tournamentForm.EndDate"
+                                      Label="Data fine (opzionale)"
+                                      MinDate="tournamentForm.StartDate"
+                                      For="@(() => tournamentForm.EndDate)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="tournamentForm.Days"
+                                        Label="Numero di giornate"
+                                        Min="1"
+                                        Max="30"
+                                        Required="true"
+                                        For="@(() => tournamentForm.Days)" />
+                    </MudItem>
+                    
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField @bind-Value="tournamentForm.MatchesPerDay"
+                                        Label="Partite per giornata"
+                                        Min="1"
+                                        Max="20"
+                                        Required="true"
+                                        For="@(() => tournamentForm.MatchesPerDay)" />
+                    </MudItem>
+                </MudGrid>
+                
+                <MudDivider Class="my-4" />
+                
+                <!-- Selezione giocatori -->
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    Giocatori (@selectedPlayerIds.Count/@tournamentForm.MaxPlayers)
+                </MudText>
+                
+                @if (AvailablePlayers.Any())
+                {
+                    <!-- Filtro giocatori -->
+                    <MudTextField @bind-Value="playerSearchTerm"
+                                 Label="Cerca giocatori"
+                                 Placeholder="Nome, cognome o nickname..."
+                                 Immediate="true"
+                                 DebounceInterval="300"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Search"
+                                 Class="mb-3" />
+                    
+                    <!-- Lista giocatori selezionabili -->
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px;">
+                        @foreach (var player in GetFilteredPlayers())
+                        {
+                            <MudListItem T="string" Class="px-3 py-2">
+                                <div style="display: flex; align-items: center; width: 100%;">
+                                    <MudCheckBox T="bool" 
+                                               Value="@selectedPlayerIds.Contains(player.Id)"
+                                               ValueChanged="@((bool isChecked) => TogglePlayerSelection(player.Id, isChecked))"
+                                               Disabled="@(!selectedPlayerIds.Contains(player.Id) && selectedPlayerIds.Count >= tournamentForm.MaxPlayers)" />
+                                    <div style="margin-left: 12px; flex: 1;">
+                                        <MudText Typo="Typo.body1">@player.DisplayName</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                            @GetSkillLevelText(player.SkillLevel) • @player.Points pt
+                                        </MudText>
+                                    </div>
+                                    <MudChip T="string" Size="Size.Small" Color="GetSkillLevelColor(player.SkillLevel)">
+                                        @GetSkillLevelText(player.SkillLevel)
+                                    </MudChip>
+                                </div>
+                            </MudListItem>
+                        }
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="SelectAllPlayers">
+                            Seleziona Tutti
+                        </MudButton>
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ClearPlayerSelection">
+                            Deseleziona Tutti
+                        </MudButton>
+                    </div>
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Warning">
+                        Nessun giocatore disponibile. Crea prima alcuni giocatori.
+                    </MudAlert>
+                }
+                
+                <MudDivider Class="my-4" />
+                
+                <div style="display: flex; justify-content: end; gap: 8px;">
+                    <MudButton Variant="Variant.Text" OnClick="HandleCancel">
+                        Annulla
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary" 
+                              ButtonType="ButtonType.Submit"
+                              Disabled="@(selectedPlayerIds.Count < 4)">
+                        @(Tournament == null ? "Crea Torneo" : "Salva Modifiche")
+                    </MudButton>
+                </div>
+            </EditForm>
+        </MudContainer>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public Tournament? Tournament { get; set; }
+    [Parameter] public List<Player> AvailablePlayers { get; set; } = new();
+    [Parameter] public EventCallback<Tournament> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private TournamentFormModel tournamentForm = new();
+    private List<string> selectedPlayerIds = new();
+    private string playerSearchTerm = string.Empty;
+    
+    private DialogOptions dialogOptions = new() 
+    { 
+        MaxWidth = MaxWidth.Medium, 
+        FullWidth = true,
+        CloseButton = true
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (IsVisible)
+        {
+            if (Tournament != null)
+            {
+                // Modalità modifica
+                tournamentForm = new TournamentFormModel
+                {
+                    Name = Tournament.Name,
+                    Description = Tournament.Description,
+                    Status = Tournament.Status,
+                    StartDate = Tournament.StartDate?.ToDateTime(TimeOnly.MinValue),
+                    EndDate = Tournament.EndDate?.ToDateTime(TimeOnly.MinValue),
+                    Days = Tournament.Days,
+                    MatchesPerDay = Tournament.MatchesPerDay,
+                    MaxPlayers = Tournament.MaxPlayers
+                };
+                selectedPlayerIds = Tournament.PlayerIds?.ToList() ?? new List<string>();
+            }
+            else
+            {
+                // Modalità creazione
+                tournamentForm = new TournamentFormModel
+                {
+                    Status = TournamentStatus.Draft,
+                    Days = 12,
+                    MatchesPerDay = 6,
+                    MaxPlayers = 24
+                };
+                selectedPlayerIds = new List<string>();
+            }
+            playerSearchTerm = string.Empty;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var tournament = new Tournament
+        {
+            Name = tournamentForm.Name,
+            Description = string.IsNullOrWhiteSpace(tournamentForm.Description) ? null : tournamentForm.Description,
+            Status = tournamentForm.Status,
+            StartDate = tournamentForm.StartDate.HasValue ? DateOnly.FromDateTime(tournamentForm.StartDate.Value) : null,
+            EndDate = tournamentForm.EndDate.HasValue ? DateOnly.FromDateTime(tournamentForm.EndDate.Value) : null,
+            Days = tournamentForm.Days,
+            MatchesPerDay = tournamentForm.MatchesPerDay,
+            MaxPlayers = tournamentForm.MaxPlayers,
+            PlayerIds = selectedPlayerIds.ToList()
+        };
+
+        await OnSave.InvokeAsync(tournament);
+    }
+
+    private async Task HandleCancel()
+    {
+        await IsVisibleChanged.InvokeAsync(false);
+        await OnCancel.InvokeAsync();
+    }
+
+    private List<Player> GetFilteredPlayers()
+    {
+        return AvailablePlayers.Where(p => 
+            string.IsNullOrEmpty(playerSearchTerm) ||
+            p.Name.Contains(playerSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+            p.Surname.Contains(playerSearchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (p.Nickname != null && p.Nickname.Contains(playerSearchTerm, StringComparison.OrdinalIgnoreCase))
+        ).OrderBy(p => p.Name).ThenBy(p => p.Surname).ToList();
+    }
+
+    private void TogglePlayerSelection(string playerId, bool isSelected)
+    {
+        if (isSelected && !selectedPlayerIds.Contains(playerId))
+        {
+            if (selectedPlayerIds.Count < tournamentForm.MaxPlayers)
+            {
+                selectedPlayerIds.Add(playerId);
+            }
+        }
+        else if (!isSelected && selectedPlayerIds.Contains(playerId))
+        {
+            selectedPlayerIds.Remove(playerId);
+        }
+        StateHasChanged();
+    }
+
+    private void SelectAllPlayers()
+    {
+        var availableSlots = tournamentForm.MaxPlayers - selectedPlayerIds.Count;
+        var playersToAdd = GetFilteredPlayers()
+            .Where(p => !selectedPlayerIds.Contains(p.Id))
+            .Take(availableSlots)
+            .Select(p => p.Id);
+        
+        selectedPlayerIds.AddRange(playersToAdd);
+        StateHasChanged();
+    }
+
+    private void ClearPlayerSelection()
+    {
+        selectedPlayerIds.Clear();
+        StateHasChanged();
+    }
+
+    private Color GetSkillLevelColor(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => Color.Success,
+            SkillLevel.FasciaB => Color.Info,
+            SkillLevel.Unassigned => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private string GetSkillLevelText(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "Fascia A",
+            SkillLevel.FasciaB => "Fascia B",
+            SkillLevel.Unassigned => "Non Assegnato",
+            _ => "Sconosciuto"
+        };
+    }
+
+    public class TournamentFormModel
+    {
+        [Required(ErrorMessage = "Il nome è obbligatorio")]
+        [StringLength(200, ErrorMessage = "Il nome non può superare i 200 caratteri")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(1000, ErrorMessage = "La descrizione non può superare i 1000 caratteri")]
+        public string? Description { get; set; }
+
+        [Required(ErrorMessage = "Lo stato è obbligatorio")]
+        public TournamentStatus Status { get; set; } = TournamentStatus.Draft;
+
+        public DateTime? StartDate { get; set; }
+
+        public DateTime? EndDate { get; set; }
+
+        [Required(ErrorMessage = "Il numero di giornate è obbligatorio")]
+        [Range(1, 30, ErrorMessage = "Il numero di giornate deve essere tra 1 e 30")]
+        public int Days { get; set; } = 12;
+
+        [Required(ErrorMessage = "Il numero di partite per giornata è obbligatorio")]
+        [Range(1, 20, ErrorMessage = "Il numero di partite per giornata deve essere tra 1 e 20")]
+        public int MatchesPerDay { get; set; } = 6;
+
+        [Required(ErrorMessage = "Il numero massimo di giocatori è obbligatorio")]
+        [Range(4, 32, ErrorMessage = "Il numero massimo di giocatori deve essere tra 4 e 32")]
+        public int MaxPlayers { get; set; } = 24;
+    }
+}

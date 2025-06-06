@@ -1,0 +1,235 @@
+@using PadelMatcherNet.Models
+
+<MudCard>
+    <MudCardHeader>
+        <CardHeaderContent>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <MudText Typo="Typo.h6">
+                    Round @Match.Round
+                    @if (!string.IsNullOrEmpty(Match.Court))
+                    {
+                        <text> • Campo @Match.Court</text>
+                    }
+                </MudText>
+                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(Match.Status)">
+                    @GetStatusText(Match.Status)
+                </MudChip>
+            </div>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                @GetMatchFormatText(Match.MatchFormat)
+            </MudText>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small">
+                <MudMenuItem OnClick="OnEditResults">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@Icons.Material.Filled.EditNote" Class="mr-2" />
+                        @(Match.Status == MatchStatus.Completed ? "Modifica Risultato" : "Inserisci Risultato")
+                    </div>
+                </MudMenuItem>
+                <MudMenuItem OnClick="OnEdit">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
+                        Modifica Partita
+                    </div>
+                </MudMenuItem>
+                <MudMenuItem OnClick="OnDelete">
+                    <div style="display: flex; align-items: center;">
+                        <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" />
+                        Elimina
+                    </div>
+                </MudMenuItem>
+            </MudMenu>
+        </CardHeaderActions>
+    </MudCardHeader>
+    
+    <MudCardContent>
+        <!-- Squadre -->
+        <MudGrid>
+            <MudItem xs="12">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                    <!-- Team 1 -->
+                    <div style="flex: 1; text-align: center;">
+                        <MudText Typo="Typo.body1" Class="@GetTeamClass(Match.Team1.Id, Match.WinnerTeamId)">
+                            @GetTeamDisplayName(Match.Team1)
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @GetTeamSkillInfo(Match.Team1)
+                        </MudText>
+                    </div>
+                    
+                    <!-- VS -->
+                    <div style="padding: 0 16px;">
+                        <MudText Typo="Typo.h6" Class="mud-text-secondary">VS</MudText>
+                    </div>
+                    
+                    <!-- Team 2 -->
+                    <div style="flex: 1; text-align: center;">
+                        <MudText Typo="Typo.body1" Class="@GetTeamClass(Match.Team2.Id, Match.WinnerTeamId)">
+                            @GetTeamDisplayName(Match.Team2)
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @GetTeamSkillInfo(Match.Team2)
+                        </MudText>
+                    </div>
+                </div>
+            </MudItem>
+            
+            <!-- Punteggio -->
+            @if (Match.Scores.Any())
+            {
+                <MudItem xs="12">
+                    <MudDivider />
+                    <div style="text-align: center; margin-top: 12px;">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Punteggio</MudText>
+                        <div style="display: flex; justify-content: center; gap: 16px;">
+                            @foreach (var score in Match.Scores)
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                    @GetScoreDisplay(score)
+                                </MudChip>
+                            }
+                        </div>
+                    </div>
+                </MudItem>
+            }
+            
+            <!-- Risultato finale -->
+            @if (!string.IsNullOrEmpty(Match.WinnerTeamId))
+            {
+                <MudItem xs="12">
+                    <div style="text-align: center; margin-top: 12px;">
+                        <MudAlert Severity="Severity.Success" Dense="true">
+                            <MudText Typo="Typo.body2">
+                                🏆 Vincitori: @GetWinnerTeamName()
+                            </MudText>
+                        </MudAlert>
+                    </div>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudCardContent>
+    
+    <MudCardActions>
+        <MudButton Variant="Variant.Text" 
+                  Color="Color.Primary" 
+                  StartIcon="@GetResultButtonIcon()"
+                  OnClick="OnEditResults">
+            @GetResultButtonText()
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired] public Match Match { get; set; } = null!;
+    [Parameter] public EventCallback OnEditResults { get; set; }
+    [Parameter] public EventCallback OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private Color GetStatusColor(MatchStatus status)
+    {
+        return status switch
+        {
+            MatchStatus.Completed => Color.Success,
+            MatchStatus.InProgress => Color.Warning,
+            MatchStatus.Pending => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private string GetStatusText(MatchStatus status)
+    {
+        return status switch
+        {
+            MatchStatus.Completed => "Completata",
+            MatchStatus.InProgress => "In Corso",
+            MatchStatus.Pending => "In Attesa",
+            _ => "Sconosciuto"
+        };
+    }
+
+    private string GetMatchFormatText(MatchFormat format)
+    {
+        return format switch
+        {
+            MatchFormat.BestOfThree => "Al meglio di 3 set",
+            MatchFormat.GoldenPoint => "Golden Point",
+            _ => "Formato sconosciuto"
+        };
+    }
+
+    private string GetTeamDisplayName(Team team)
+    {
+        var player1Name = team.Player1.Nickname ?? team.Player1.Name;
+        var player2Name = team.Player2.Nickname ?? team.Player2.Name;
+        return $"{player1Name} / {player2Name}";
+    }
+
+    private string GetTeamSkillInfo(Team team)
+    {
+        return $"{GetSkillLevelShort(team.Player1.SkillLevel)} + {GetSkillLevelShort(team.Player2.SkillLevel)}";
+    }
+
+    private string GetSkillLevelShort(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "A",
+            SkillLevel.FasciaB => "B",
+            SkillLevel.Unassigned => "?",
+            _ => "?"
+        };
+    }
+
+    private string GetTeamClass(string teamId, string? winnerTeamId)
+    {
+        if (!string.IsNullOrEmpty(winnerTeamId) && teamId == winnerTeamId)
+        {
+            return "font-weight-bold mud-success-text";
+        }
+        return "";
+    }
+
+    private string GetScoreDisplay(MatchSetScore score)
+    {
+        if (score.Team1Score?.ToString() == "GP" || score.Team2Score?.ToString() == "GP")
+        {
+            return "GP";
+        }
+        return $"{score.Team1Score}-{score.Team2Score}";
+    }
+
+    private string GetWinnerTeamName()
+    {
+        if (string.IsNullOrEmpty(Match.WinnerTeamId)) return "";
+        
+        if (Match.WinnerTeamId == Match.Team1.Id)
+            return GetTeamDisplayName(Match.Team1);
+        else if (Match.WinnerTeamId == Match.Team2.Id)
+            return GetTeamDisplayName(Match.Team2);
+        
+        return "Sconosciuto";
+    }
+
+    private string GetResultButtonText()
+    {
+        return Match.Status switch
+        {
+            MatchStatus.Completed => "Modifica Risultato",
+            MatchStatus.InProgress => "Aggiorna Risultato",
+            MatchStatus.Pending => "Inserisci Risultato",
+            _ => "Risultato"
+        };
+    }
+
+    private string GetResultButtonIcon()
+    {
+        return Match.Status switch
+        {
+            MatchStatus.Completed => Icons.Material.Filled.Edit,
+            MatchStatus.InProgress => Icons.Material.Filled.Update,
+            MatchStatus.Pending => Icons.Material.Filled.Add,
+            _ => Icons.Material.Filled.EditNote
+        };
+    }
+}

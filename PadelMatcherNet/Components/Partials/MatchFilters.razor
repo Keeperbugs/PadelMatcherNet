@@ -1,0 +1,42 @@
+@using PadelMatcherNet.Models
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Filtri</MudText>
+    
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudSelect T="int?" Value="@RoundFilter"
+                      ValueChanged="@RoundFilterChanged"
+                      Label="Round"
+                      Clearable="true">
+                <MudSelectItem T="int?" Value="@((int?)null)">Tutti i round</MudSelectItem>
+                @foreach (var round in AvailableRounds)
+                {
+                    <MudSelectItem T="int?" Value="@((int?)round)">Round @round</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        
+        <MudItem xs="12" sm="6">
+            <MudSelect T="MatchStatus?" Value="@StatusFilter"
+                      ValueChanged="@StatusFilterChanged"
+                      Label="Stato partita"
+                      Clearable="true">
+                <MudSelectItem T="MatchStatus?" Value="@((MatchStatus?)null)">Tutti gli stati</MudSelectItem>
+                <MudSelectItem T="MatchStatus?" Value="@((MatchStatus?)MatchStatus.Pending)">In Attesa</MudSelectItem>
+                <MudSelectItem T="MatchStatus?" Value="@((MatchStatus?)MatchStatus.InProgress)">In Corso</MudSelectItem>
+                <MudSelectItem T="MatchStatus?" Value="@((MatchStatus?)MatchStatus.Completed)">Completata</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter] public int? RoundFilter { get; set; }
+    [Parameter] public EventCallback<int?> RoundFilterChanged { get; set; }
+    
+    [Parameter] public MatchStatus? StatusFilter { get; set; }
+    [Parameter] public EventCallback<MatchStatus?> StatusFilterChanged { get; set; }
+    
+    [Parameter] public List<int> AvailableRounds { get; set; } = new();
+}

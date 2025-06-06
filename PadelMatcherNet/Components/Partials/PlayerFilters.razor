@@ -1,0 +1,38 @@
+@using PadelMatcherNet.Models
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Filtri</MudText>
+    
+    <MudGrid Align="Align.End">
+        <MudItem xs="12" sm="8">
+            <MudTextField Value="@SearchTerm"
+                         ValueChanged="@SearchTermChanged"
+                         Label="Cerca giocatori"
+                         Placeholder="Nome, cognome o nickname..."
+                         Immediate="true"
+                         DebounceInterval="300"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Search" />
+        </MudItem>
+        
+        <MudItem xs="12" sm="4">
+            <MudSelect T="SkillLevel?" Value="@SkillLevelFilter"
+                      ValueChanged="@SkillLevelFilterChanged"
+                      Label="Fascia di abilità"
+                      Clearable="true">
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)null)">Tutte le fasce</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.FasciaA)">Fascia A (Alto)</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.FasciaB)">Fascia B (Medio/Basso)</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.Unassigned)">Non Assegnato</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter] public string SearchTerm { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchTermChanged { get; set; }
+    
+    [Parameter] public SkillLevel? SkillLevelFilter { get; set; }
+    [Parameter] public EventCallback<SkillLevel?> SkillLevelFilterChanged { get; set; }
+}
