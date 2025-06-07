@@ -1,0 +1,182 @@
+@using PadelMatcherNet.Models
+
+<MudPaper Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Filtri e Ordinamento</MudText>
+    
+    <MudGrid>
+        <!-- Filtro Fascia -->
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="SkillLevel?" Value="@SkillLevelFilter"
+                      ValueChanged="@SkillLevelFilterChanged"
+                      Label="Fascia di abilità"
+                      Clearable="true">
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)null)">Tutte le fasce</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.FasciaA)">Fascia A (Alto)</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.FasciaB)">Fascia B (Medio/Basso)</MudSelectItem>
+                <MudSelectItem T="SkillLevel?" Value="@((SkillLevel?)SkillLevel.Unassigned)">Non Assegnato</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        
+        <!-- Ordinamento -->
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="StatsSortBy" Value="@SortBy"
+                      ValueChanged="@SortByChanged"
+                      Label="Ordina per">
+                <MudSelectItem T="StatsSortBy" Value="@StatsSortBy.Points">Punti</MudSelectItem>
+                <MudSelectItem T="StatsSortBy" Value="@StatsSortBy.MatchesWon">Partite Vinte</MudSelectItem>
+                <MudSelectItem T="StatsSortBy" Value="@StatsSortBy.WinRate">% Vittorie</MudSelectItem>
+                <MudSelectItem T="StatsSortBy" Value="@StatsSortBy.SetsWon">Set Vinti</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        
+        <!-- Selezione Torneo (solo se vista torneo e ci sono più tornei) -->
+        @if (ViewMode == ViewMode.Tournament && Tournaments.Count > 1)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="string" Value="@(CurrentTournament?.Id ?? "")"
+                          ValueChanged="@OnTournamentChanged"
+                          Label="Seleziona Torneo">
+                    @foreach (var tournament in Tournaments.Where(t => t.Status == TournamentStatus.Active || t.Status == TournamentStatus.Completed))
+                    {
+                        <MudSelectItem T="string" Value="@tournament.Id">
+                            @tournament.Name (@GetTournamentStatusText(tournament.Status))
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        
+        <!-- Info contestuale -->
+        <MudItem xs="12" md="@(ViewMode == ViewMode.Tournament && Tournaments.Count > 1 ? 2 : 6)" Class="d-flex align-center">
+            <div>
+                @if (ViewMode == ViewMode.Tournament && CurrentTournament != null)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="GetTournamentColor(CurrentTournament.Status)" Icon="@Icons.Material.Filled.EmojiEvents">
+                        @CurrentTournament.Name
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
+                        Round @CurrentTournament.CurrentRound • @CurrentTournament.CurrentPlayerCount giocatori
+                    </MudText>
+                }
+                else if (ViewMode == ViewMode.Tournament && CurrentTournament == null)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Nessun torneo attivo selezionato
+                    </MudAlert>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Icon="@Icons.Material.Filled.Leaderboard">
+                        Statistiche Generali
+                    </MudChip>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
+                        Tutti i tornei • Dati aggregati
+                    </MudText>
+                }
+            </div>
+        </MudItem>
+    </MudGrid>
+    
+    <!-- Azioni rapide -->
+    <MudGrid Class="mt-2">
+        <MudItem xs="12">
+            <div Class="d-flex justify-space-between align-center flex-wrap gap-2">
+                <div Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Text" 
+                              Size="Size.Small" 
+                              StartIcon="@Icons.Material.Filled.FilterAlt" 
+                              OnClick="ClearFilters">
+                        Pulisci Filtri
+                    </MudButton>
+                    @if (ViewMode == ViewMode.Tournament && CurrentTournament != null)
+                    {
+                        <MudButton Variant="Variant.Text" 
+                                  Size="Size.Small" 
+                                  StartIcon="@Icons.Material.Filled.Calculate"
+                                  OnClick="OnRecalculateStats">
+                            Ricalcola
+                        </MudButton>
+                    }
+                </div>
+                
+                <div Class="d-flex gap-2">
+                    <MudTooltip Text="Esporta in CSV">
+                        <MudIconButton Icon="@Icons.Material.Filled.FileDownload" 
+                                      Size="Size.Small" 
+                                      OnClick="OnExportCsv" />
+                    </MudTooltip>
+                    <MudTooltip Text="Stampa classifiche">
+                        <MudIconButton Icon="@Icons.Material.Filled.Print" 
+                                      Size="Size.Small" 
+                                      OnClick="OnPrint" />
+                    </MudTooltip>
+                </div>
+            </div>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    [Parameter] public SkillLevel? SkillLevelFilter { get; set; }
+    [Parameter] public EventCallback<SkillLevel?> SkillLevelFilterChanged { get; set; }
+    
+    [Parameter] public StatsSortBy SortBy { get; set; }
+    [Parameter] public EventCallback<StatsSortBy> SortByChanged { get; set; }
+    
+    [Parameter] public ViewMode ViewMode { get; set; }
+    [Parameter] public Tournament? CurrentTournament { get; set; }
+    [Parameter] public List<Tournament> Tournaments { get; set; } = new();
+    
+    [Parameter] public EventCallback<string> TournamentChanged { get; set; }
+    [Parameter] public EventCallback RecalculateStats { get; set; }
+    [Parameter] public EventCallback ExportCsv { get; set; }
+    [Parameter] public EventCallback Print { get; set; }
+
+    private async Task ClearFilters()
+    {
+        await SkillLevelFilterChanged.InvokeAsync(null);
+        await SortByChanged.InvokeAsync(StatsSortBy.Points);
+    }
+
+    private async Task OnTournamentChanged(string tournamentId)
+    {
+        await TournamentChanged.InvokeAsync(tournamentId);
+    }
+
+    private async Task OnRecalculateStats()
+    {
+        await RecalculateStats.InvokeAsync();
+    }
+
+    private async Task OnExportCsv()
+    {
+        await ExportCsv.InvokeAsync();
+    }
+
+    private async Task OnPrint()
+    {
+        await Print.InvokeAsync();
+    }
+
+    private Color GetTournamentColor(TournamentStatus status)
+    {
+        return status switch
+        {
+            TournamentStatus.Active => Color.Success,
+            TournamentStatus.Completed => Color.Info,
+            TournamentStatus.Draft => Color.Warning,
+            _ => Color.Default
+        };
+    }
+
+    private string GetTournamentStatusText(TournamentStatus status)
+    {
+        return status switch
+        {
+            TournamentStatus.Active => "Attivo",
+            TournamentStatus.Completed => "Completato",
+            TournamentStatus.Draft => "Bozza",
+            _ => "Sconosciuto"
+        };
+    }
+}

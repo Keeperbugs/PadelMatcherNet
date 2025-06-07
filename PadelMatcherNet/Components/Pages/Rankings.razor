@@ -1,0 +1,478 @@
+@page "/rankings"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@using PadelMatcherNet.Components.Partials
+@using PadelMatcherNet.Extensions
+@inject IStatsService StatsService
+@inject ITournamentService TournamentService
+@inject IPlayerService PlayerService
+
+<PageTitle>Classifiche</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Classifiche e Statistiche</MudText>
+    
+    @if (isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+        <MudText>Caricamento statistiche...</MudText>
+    }
+    else
+    {
+        <MudGrid>
+            <!-- Header con toggle vista e filtri -->
+            <MudItem xs="12">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudText Typo="Typo.h6">
+                                @if (viewMode == ViewMode.Tournament && currentTournament != null)
+                                {
+                                    <text>Classifica: @currentTournament.Name</text>
+                                }
+                                else
+                                {
+                                    <text>Classifica Generale</text>
+                                }
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Primary">
+                                @GetStatsToShow().Count giocatori • Ordinati per @GetSortByDisplayName()
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" sm="6" Class="d-flex justify-end flex-wrap gap-2">
+                            <!-- Toggle Vista -->
+                            <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                                <MudButton Color="@(viewMode == ViewMode.Tournament ? Color.Primary : Color.Default)"
+                                          OnClick="() => SetViewMode(ViewMode.Tournament)"
+                                          Disabled="currentTournament == null">
+                                    Torneo
+                                </MudButton>
+                                <MudButton Color="@(viewMode == ViewMode.Overall ? Color.Primary : Color.Default)"
+                                          OnClick="() => SetViewMode(ViewMode.Overall)">
+                                    Generale
+                                </MudButton>
+                            </MudButtonGroup>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Filtri -->
+            <MudItem xs="12">
+                <RankingsFilters SkillLevelFilter="@skillLevelFilter"
+                               SkillLevelFilterChanged="@((value) => { skillLevelFilter = value; ApplyFilters(); })"
+                               SortBy="@sortBy"
+                               SortByChanged="@((value) => { sortBy = value; ApplyFilters(); })"
+                               ViewMode="@viewMode"
+                               CurrentTournament="@currentTournament"
+                               Tournaments="@tournaments" />
+            </MudItem>
+
+            <!-- Tabella Classifica -->
+            <MudItem xs="12" lg="8">
+                <MudPaper Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-3">
+                        @if (viewMode == ViewMode.Tournament && currentTournament != null)
+                        {
+                            <text>🏆 Classifica @currentTournament.Name</text>
+                        }
+                        else
+                        {
+                            <text>🏆 Classifica Generale</text>
+                        }
+                    </MudText>
+                    
+                    @if (filteredStats.Any())
+                    {
+                        <MudTable Items="filteredStats" Dense="true" Hover="true" Striped="true">
+                            <HeaderContent>
+                                <MudTh Style="width: 60px;">#</MudTh>
+                                <MudTh>Giocatore</MudTh>
+                                <MudTh Style="width: 80px;" Class="d-none d-sm-table-cell">Fascia</MudTh>
+                                <MudTh Style="width: 80px; text-align: center;">Punti</MudTh>
+                                <MudTh Style="width: 60px; text-align: center;">PG</MudTh>
+                                <MudTh Style="width: 60px; text-align: center;">PV</MudTh>
+                                <MudTh Style="width: 60px; text-align: center;" Class="d-none d-md-table-cell">SV</MudTh>
+                                <MudTh Style="width: 60px; text-align: center;" Class="d-none d-md-table-cell">SP</MudTh>
+                                <MudTh Style="width: 80px; text-align: center;" Class="d-none d-lg-table-cell">QS</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                @{
+                                    var position = filteredStats.IndexOf(context) + 1;
+                                    var setQuotient = context.GetSetRatioDisplay();
+                                }
+                                <MudTd Class="@GetPositionClass(position)">
+                                    @if (position <= 3)
+                                    {
+                                        <MudIcon Icon="@GetPositionIcon(position)" Color="@GetPositionColor(position)" Size="Size.Small" />
+                                    }
+                                    @position
+                                </MudTd>
+                                <MudTd>
+                                    <div>
+                                        <MudText Typo="Typo.body2" Class="@GetPositionClass(position)">
+                                            @GetPlayerDisplayName(context.Player)
+                                        </MudText>
+                                        @if (!string.IsNullOrEmpty(context.Player?.Nickname))
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                @context.Player.FullName
+                                            </MudText>
+                                        }
+                                    </div>
+                                </MudTd>
+                                <MudTd Class="d-none d-sm-table-cell">
+                                    <MudChip T="string" Size="Size.Small" Color="GetSkillLevelColor(context.Player?.SkillLevel ?? SkillLevel.Unassigned)">
+                                        @GetSkillLevelShort(context.Player?.SkillLevel ?? SkillLevel.Unassigned)
+                                    </MudChip>
+                                </MudTd>
+                                <MudTd Style="text-align: center;">
+                                    <MudText Typo="Typo.body1" Class="@($"font-weight-bold {GetPositionClass(position)}")">
+                                        @context.Points
+                                    </MudText>
+                                </MudTd>
+                                <MudTd Style="text-align: center;">@context.MatchesPlayed</MudTd>
+                                <MudTd Style="text-align: center;">@context.MatchesWon</MudTd>
+                                <MudTd Style="text-align: center;" Class="d-none d-md-table-cell">@context.SetsWon</MudTd>
+                                <MudTd Style="text-align: center;" Class="d-none d-md-table-cell">@context.SetsLost</MudTd>
+                                <MudTd Style="text-align: center;" Class="d-none d-lg-table-cell">@setQuotient</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Info">
+                            @if (viewMode == ViewMode.Tournament && currentTournament == null)
+                            {
+                                <text>Seleziona un torneo per visualizzare la classifica di torneo.</text>
+                            }
+                            else if (skillLevelFilter != null)
+                            {
+                                <text>Nessun giocatore trovato per la fascia "@skillLevelFilter".</text>
+                            }
+                            else
+                            {
+                                <text>Nessuna statistica disponibile.</text>
+                            }
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Pannello Statistiche Laterale -->
+            <MudItem xs="12" lg="4">
+                <MudGrid>
+                    <!-- Top Performer -->
+                    @if (filteredStats.Any())
+                    {
+                        var topPlayer = filteredStats.First();
+                        <MudItem xs="12">
+                            <MudPaper Class="pa-4">
+                                <MudText Typo="Typo.h6" Class="mb-3">🥇 Leader</MudText>
+                                <div Class="d-flex align-center mb-3">
+                                    <MudAvatar Color="Color.Primary" Class="mr-3">
+                                        @GetPlayerInitials(topPlayer.Player)
+                                    </MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                                            @GetPlayerDisplayName(topPlayer.Player)
+                                        </MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Primary">
+                                            @topPlayer.Points punti
+                                        </MudText>
+                                    </div>
+                                </div>
+                                <MudGrid>
+                                    <MudItem xs="6">
+                                        <MudText Typo="Typo.caption">Partite</MudText>
+                                        <MudText Typo="Typo.body2">@topPlayer.MatchesWon/@topPlayer.MatchesPlayed</MudText>
+                                    </MudItem>
+                                    <MudItem xs="6">
+                                        <MudText Typo="Typo.caption">Win Rate</MudText>
+                                        <MudText Typo="Typo.body2">@topPlayer.GetWinRateDisplay()</MudText>
+                                    </MudItem>
+                                </MudGrid>
+                            </MudPaper>
+                        </MudItem>
+                    }
+
+                    <!-- Statistiche Riassuntive -->
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4">
+                            <MudText Typo="Typo.h6" Class="mb-3">📊 Statistiche</MudText>
+                            <MudGrid>
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption">Giocatori Attivi</MudText>
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">@filteredStats.Count</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption">Partite Totali</MudText>
+                                    <MudText Typo="Typo.h6" Color="Color.Secondary">@GetTotalMatches()</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption">Fascia A</MudText>
+                                    <MudText Typo="Typo.body2">@GetPlayersBySkill(SkillLevel.FasciaA)</MudText>
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudText Typo="Typo.caption">Fascia B</MudText>
+                                    <MudText Typo="Typo.body2">@GetPlayersBySkill(SkillLevel.FasciaB)</MudText>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+
+                    <!-- Grafico Top 5 -->
+                    @if (chartData.Any())
+                    {
+                        <MudItem xs="12">
+                            <MudPaper Class="pa-4">
+                                <MudText Typo="Typo.h6" Class="mb-3">📈 Top 5 Giocatori</MudText>
+                                <MudChart ChartType="ChartType.Bar"
+                                         ChartSeries="@chartSeries"
+                                         XAxisLabels="@chartLabels"
+                                         Width="100%"
+                                         Height="250px"
+                                         ChartOptions="@chartOptions" />
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private bool isLoading = true;
+    private List<PlayerStats> tournamentStats = new();
+    private List<PlayerStats> overallStats = new();
+    private List<PlayerStats> filteredStats = new();
+    private List<Tournament> tournaments = new();
+    private Tournament? currentTournament = null;
+    
+    // Filtri e vista
+    private ViewMode viewMode = ViewMode.Overall;
+    private SkillLevel? skillLevelFilter = null;
+    private StatsSortBy sortBy = StatsSortBy.Points;
+    
+    // Dati per il grafico
+    private List<PlayerStats> chartData = new();
+    private List<ChartSeries> chartSeries = new();
+    private string[] chartLabels = Array.Empty<string>();
+    private ChartOptions chartOptions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        SetupChart();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        try
+        {
+            // Carica tornei e torneo corrente
+            var loadTournamentsTask = TournamentService.GetAllTournamentsAsync();
+            var loadCurrentTournamentTask = TournamentService.GetCurrentTournamentAsync();
+            
+            await Task.WhenAll(loadTournamentsTask, loadCurrentTournamentTask);
+            
+            tournaments = await loadTournamentsTask;
+            currentTournament = await loadCurrentTournamentTask;
+            
+            // Carica statistiche
+            overallStats = await StatsService.GetOverallPlayerStatsAsync();
+            
+            if (currentTournament != null)
+            {
+                tournamentStats = await StatsService.GetTournamentPlayerStatsAsync(currentTournament.Id);
+                viewMode = ViewMode.Tournament;
+            }
+            else
+            {
+                viewMode = ViewMode.Overall;
+            }
+            
+            ApplyFilters();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore caricamento dati: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetViewMode(ViewMode mode)
+    {
+        if (mode == ViewMode.Tournament && currentTournament == null)
+            return;
+            
+        viewMode = mode;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        var statsToFilter = GetStatsToShow();
+        
+        // Applica filtro fascia
+        if (skillLevelFilter != null)
+        {
+            statsToFilter = statsToFilter.Where(s => s.Player?.SkillLevel == skillLevelFilter).ToList();
+        }
+        
+        // Applica ordinamento usando le estensioni
+        filteredStats = statsToFilter
+            .OrderBy(s1 => s1, new StatsComparer(sortBy))
+            .ToList();
+        
+        UpdateChart();
+        StateHasChanged();
+    }
+
+    private List<PlayerStats> GetStatsToShow()
+    {
+        return viewMode == ViewMode.Tournament ? tournamentStats : overallStats;
+    }
+
+    private void SetupChart()
+    {
+        chartOptions = new ChartOptions
+        {
+            YAxisTicks = 1,
+            ChartPalette = new string[] { "#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6" }
+        };
+    }
+
+    private void UpdateChart()
+    {
+        chartData = filteredStats.Take(5).ToList();
+        chartLabels = chartData.Select(s => GetPlayerDisplayName(s.Player)).ToArray();
+        
+        chartSeries = new List<ChartSeries>
+        {
+            new ChartSeries
+            {
+                Name = "Punti",
+                Data = chartData.Select(s => (double)s.Points).ToArray()
+            }
+        };
+    }
+
+    // Metodi di supporto per la visualizzazione
+    private string GetPlayerDisplayName(Player? player)
+    {
+        if (player == null) return "Sconosciuto";
+        return player.Nickname ?? $"{player.Name} {player.Surname}";
+    }
+
+    private string GetPlayerInitials(Player? player)
+    {
+        if (player == null) return "??";
+        return $"{player.Name.FirstOrDefault()}{player.Surname.FirstOrDefault()}".ToUpper();
+    }
+
+    private string GetPositionClass(int position)
+    {
+        return position switch
+        {
+            1 => "font-weight-bold mud-warning-text",
+            2 => "font-weight-bold mud-info-text", 
+            3 => "font-weight-bold mud-tertiary-text",
+            _ => ""
+        };
+    }
+
+    private string GetPositionIcon(int position)
+    {
+        return position switch
+        {
+            1 => Icons.Material.Filled.EmojiEvents,
+            2 => Icons.Material.Filled.WorkspacePremium,
+            3 => Icons.Material.Filled.Work,
+            _ => ""
+        };
+    }
+
+    private Color GetPositionColor(int position)
+    {
+        return position switch
+        {
+            1 => Color.Warning,
+            2 => Color.Info,
+            3 => Color.Secondary,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetSkillLevelColor(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => Color.Success,
+            SkillLevel.FasciaB => Color.Primary,
+            SkillLevel.Unassigned => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private string GetSkillLevelShort(SkillLevel skillLevel)
+    {
+        return skillLevel switch
+        {
+            SkillLevel.FasciaA => "A",
+            SkillLevel.FasciaB => "B",
+            SkillLevel.Unassigned => "?",
+            _ => "?"
+        };
+    }
+
+    private string GetSortByDisplayName()
+    {
+        return sortBy switch
+        {
+            StatsSortBy.Points => "Punti",
+            StatsSortBy.MatchesWon => "Vittorie",
+            StatsSortBy.WinRate => "% Vittorie", 
+            StatsSortBy.SetsWon => "Set Vinti",
+            _ => "Punti"
+        };
+    }
+
+    private int GetTotalMatches()
+    {
+        return filteredStats.Sum(s => s.MatchesPlayed) / 4; // Diviso per 4 perché ogni partita conta per 4 giocatori
+    }
+
+    private int GetPlayersBySkill(SkillLevel skillLevel)
+    {
+        return filteredStats.Count(s => s.Player?.SkillLevel == skillLevel);
+    }
+
+    // Gli enums sono ora definiti in Models/RankingsEnums.cs
+    
+    // Comparer personalizzato per ordinare le statistiche
+    public class StatsComparer : IComparer<PlayerStats>
+    {
+        private readonly StatsSortBy _sortBy;
+        
+        public StatsComparer(StatsSortBy sortBy)
+        {
+            _sortBy = sortBy;
+        }
+        
+        public int Compare(PlayerStats? x, PlayerStats? y)
+        {
+            if (x == null && y == null) return 0;
+            if (x == null) return 1;
+            if (y == null) return -1;
+            
+            return x.CompareForRanking(y, _sortBy);
+        }
+    }
+}
