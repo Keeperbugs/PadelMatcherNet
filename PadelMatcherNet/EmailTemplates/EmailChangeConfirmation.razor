@@ -1,0 +1,27 @@
+﻿@using PadelMatcherNet.EmailTemplates.Components
+@layout EmailLayout
+
+<EmailHeader Title="Conferma modifica email" Subtitle="Completa la modifica del tuo indirizzo email" />
+
+<EmailMessage>
+    <p>Ciao <strong>@Name</strong>,</p>
+
+    <p>Abbiamo ricevuto una richiesta per modificare l'indirizzo email associato al tuo account <strong>PadelMatcher.net</strong>.</p>
+
+    <p>Per completare il processo e confermare il nuovo indirizzo email, clicca sul pulsante qui sotto:</p>
+
+    <EmailButton Href="@ConfirmationLink" Text="Conferma modifica email" />
+
+    <p>Se non hai richiesto questa modifica, puoi ignorare questa email. Il tuo indirizzo email attuale rimarrà invariato.</p>
+
+    <p>Per qualsiasi domanda, non esitare a contattarci.</p>
+
+    <p>Cordiali saluti,<br /><em>Il team di PadelMatcher.net</em></p>
+</EmailMessage>
+
+<EmailFooter />
+
+@code {
+    [Parameter] public string Name { get; set; } = "Utente";
+    [Parameter] public string ConfirmationLink { get; set; } = "#";
+}

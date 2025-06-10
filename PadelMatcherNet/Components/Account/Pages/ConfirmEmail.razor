@@ -6,7 +6,7 @@
 @using PadelMatcherNet.Data
 
 @inject UserManager<ApplicationUser> UserManager
-@inject IdentityRedirectManager RedirectManager
+@inject NavigationManager NavigationManager
 
 <PageTitle>Confirm email</PageTitle>
 
@@ -27,22 +27,30 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (UserId is null || Code is null)
+        try
         {
-            RedirectManager.RedirectTo("");
-        }
+            if (UserId is null || Code is null)
+            {
+                // Usa NavigationManager direttamente invece di RedirectManager
+                NavigationManager.NavigateTo("");
+                return;
+            }
 
-        var user = await UserManager.FindByIdAsync(UserId);
-        if (user is null)
-        {
-            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            statusMessage = $"Error loading user with ID {UserId}";
-        }
-        else
-        {
+            var user = await UserManager.FindByIdAsync(UserId);
+            if (user is null)
+            {
+                HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+                statusMessage = $"Error loading user with ID {UserId}";
+                return;
+            }
+
             var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
             var result = await UserManager.ConfirmEmailAsync(user, code);
             statusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error confirming your email: {ex.Message}";
         }
     }
 }

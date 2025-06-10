@@ -8,6 +8,8 @@ public interface IEmailService
     Task SendWelcomeEmailAsync(string toEmail, string name);
     Task SendAccountConfirmationEmailAsync(string toEmail, string name, string confirmationLink);
     Task SendPasswordResetLinkAsync(ApplicationUser user, string toEmail, string resetLink);
+    Task SendEmailChangeConfirmationAsync(string toEmail, string name, string confirmationLink);
+
 }
 
 public class EmailService : IEmailService
@@ -32,6 +34,9 @@ public class EmailService : IEmailService
 
     public async Task SendAccountConfirmationEmailAsync(string toEmail, string name, string confirmationLink)
     {
+        // Assicurati che il link non sia HTML-encoded
+        confirmationLink = confirmationLink.Replace("&amp;", "&");
+
         await SendEmailAsync<ConfirmationEmail>(
             toEmail, 
             "Conferma il tuo account", 
@@ -54,6 +59,22 @@ public class EmailService : IEmailService
                 ["ResetLink"] = resetLink
             },
             "Invio email reimpostazione password fallito");
+    }
+
+    public async Task SendEmailChangeConfirmationAsync(string toEmail, string name, string confirmationLink)
+    {
+        // Assicurati che il link non sia HTML-encoded
+        confirmationLink = confirmationLink.Replace("&amp;", "&");
+
+        await SendEmailAsync<EmailChangeConfirmation>(
+            toEmail,
+            "Conferma modifica email",
+            new Dictionary<string, object?>
+            {
+                ["Name"] = name,
+                ["ConfirmationLink"] = confirmationLink
+            },
+            "Invio email conferma modifica email fallito");
     }
 
     private async Task SendEmailAsync<T>(string toEmail, string subject, Dictionary<string, object?> parameters, string errorPrefix)

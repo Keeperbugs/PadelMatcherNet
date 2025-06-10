@@ -8,7 +8,7 @@
 @using PadelMatcherNet.Data
 
 @inject UserManager<ApplicationUser> UserManager
-@inject IEmailSender<ApplicationUser> EmailSender
+@inject IEmailService EmailService
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
@@ -53,10 +53,17 @@
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        //var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+        //    NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+        //    new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+        var baseUrl = NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri;
+        var callbackUrl = $"{baseUrl}?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+        // Usa il servizio email personalizzato invece di EmailSender
+        await EmailService.SendAccountConfirmationEmailAsync(
+            toEmail: Input.Email,
+            name: user.UserName ?? Input.Email,
+            confirmationLink: HtmlEncoder.Default.Encode(callbackUrl)
+        );
 
         message = "Verification email sent. Please check your email.";
     }

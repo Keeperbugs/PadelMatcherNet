@@ -8,7 +8,7 @@
 @using PadelMatcherNet.Data
 
 @inject UserManager<ApplicationUser> UserManager
-@inject IEmailSender<ApplicationUser> EmailSender
+@inject IEmailService EmailService
 @inject IdentityUserAccessor UserAccessor
 @inject NavigationManager NavigationManager
 
@@ -84,11 +84,17 @@
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateChangeEmailTokenAsync(user, Input.NewEmail);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+        // Costruisci manualmente l'URL per evitare la codifica HTML
+        var baseUrl = NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri;
+        var callbackUrl = $"{baseUrl}?userId={Uri.EscapeDataString(userId)}&email={Uri.EscapeDataString(Input.NewEmail)}&code={Uri.EscapeDataString(code)}";
+
+        // Usa il tuo EmailService personalizzato
+        await EmailService.SendEmailChangeConfirmationAsync(
+            Input.NewEmail,
+            user.UserName ?? Input.NewEmail,
+            callbackUrl
+        );
 
         message = "Confirmation link to change email sent. Please check your email.";
     }
@@ -103,11 +109,17 @@
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+        // Costruisci manualmente l'URL per evitare la codifica HTML
+        var baseUrl = NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri;
+        var callbackUrl = $"{baseUrl}?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+
+        // Usa il tuo EmailService personalizzato
+        await EmailService.SendAccountConfirmationEmailAsync(
+            email,
+            user.UserName ?? email,
+            callbackUrl
+        );
 
         message = "Verification email sent. Please check your email.";
     }

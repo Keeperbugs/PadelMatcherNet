@@ -10,7 +10,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
 @inject SignInManager<ApplicationUser> SignInManager
-@inject IEmailSender<ApplicationUser> EmailSender
+@inject IEmailService EmailService
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
@@ -86,11 +86,18 @@
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+        var baseUrl = NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri;
+        var callbackUrl = $"{baseUrl}?userId={Uri.EscapeDataString(userId)}&code={Uri.EscapeDataString(code)}";
+        if (!string.IsNullOrEmpty(ReturnUrl))
+        {
+            callbackUrl += $"&returnUrl={Uri.EscapeDataString(ReturnUrl)}";
+        }
 
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        await EmailService.SendAccountConfirmationEmailAsync(
+            Input.Email,
+            user.UserName ?? Input.Email,
+            callbackUrl
+        );
 
         if (UserManager.Options.SignIn.RequireConfirmedAccount)
         {
