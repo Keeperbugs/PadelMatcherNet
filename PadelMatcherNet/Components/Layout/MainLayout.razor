@@ -1,24 +1,99 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@using PadelMatcherNet.Services
+@inject IUnifiedThemeService UnifiedThemeService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
 
-<MudThemeProvider />
+<MudThemeProvider @ref="mudThemeProvider" Theme="currentTheme" IsDarkMode="isDarkMode" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
+
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudStaticNavDrawerToggle DrawerId="nav-drawer" Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" />
         <MudText Typo="Typo.h5" Class="ml-3">PadelMatcher.net</MudText>
         <MudSpacer />
-        <MudIconButton Icon="@Icons.Material.Filled.MoreVert" Color="Color.Inherit" Edge="Edge.End" />
+
+        <!-- THEME TOGGLE UNIFICATO -->
+        <MudTooltip Text="@GetThemeTooltip()">
+            <MudIconButton Icon="@GetThemeIcon()"
+                           Color="Color.Inherit"
+                           OnClick="ToggleTheme" />
+        </MudTooltip>
+
+        <!-- User Menu -->
+        <AuthorizeView>
+            <Authorized>
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                         Color="Color.Inherit"
+                         AnchorOrigin="Origin.BottomLeft"
+                         TransformOrigin="Origin.TopLeft"
+                         Dense="true"
+                         Class="ml-2">
+                    <ChildContent>
+                        <div class="px-4 py-2 border-bottom">
+                            <MudText Typo="Typo.body2" Class="font-weight-medium">
+                                @context.User.Identity?.Name
+                            </MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                Giocatore di Padel
+                            </MudText>
+                        </div>
+
+                        <MudMenuItem Href="Account/Manage">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Class="mr-3" />
+                                <MudText>Profilo</MudText>
+                            </div>
+                        </MudMenuItem>
+
+                        <MudMenuItem Href="auth">
+                            <div class="d-flex align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Lock" Class="mr-3" />
+                                <MudText>Test Auth</MudText>
+                            </div>
+                        </MudMenuItem>
+
+                        <MudDivider Class="my-2" />
+
+                        <form action="Account/Logout" method="post" class="d-contents">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                            <MudMenuItem>
+                                <button type="submit" class="mud-button-root mud-button mud-button-text mud-button-text-inherit mud-button-text-size-medium mud-ripple w-100" style="justify-content: start; padding: 0;">
+                                    <div class="d-flex align-center w-100">
+                                        <MudIcon Icon="@Icons.Material.Filled.Logout" Class="mr-3" />
+                                        <MudText>Logout</MudText>
+                                    </div>
+                                </button>
+                            </MudMenuItem>
+                        </form>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="Account/Login"
+                           Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           Size="Size.Small"
+                           Class="ml-2">
+                    Login
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudAppBar>
+
     <MudDrawer id="nav-drawer" @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
     </MudDrawer>
+
     <MudMainContent Class="pt-16 pa-4">
         @Body
     </MudMainContent>
 </MudLayout>
-
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -28,6 +103,130 @@
 
 @code {
     private bool _drawerOpen = true;
+    private string? currentUrl;
+    private MudThemeProvider mudThemeProvider = null!;
+    private MudTheme currentTheme = new();
+    private bool isDarkMode = false;
+    private ThemeMode currentThemeMode = ThemeMode.Auto;
+    private bool isInitialized = false;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isInitialized)
+        {
+            isInitialized = true;
+
+            // Registra listener per i cambiamenti
+            UnifiedThemeService.ThemeChanged += OnThemeChanged;
+
+            // Sincronizza con lo stato attuale dal cookie
+            await UpdateFromService();
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateFromService()
+    {
+        if (!isInitialized) return;
+
+        try
+        {
+            currentThemeMode = await UnifiedThemeService.GetThemeModeAsync();
+            isDarkMode = await UnifiedThemeService.GetIsDarkModeAsync();
+
+            Console.WriteLine($"Updated theme: Mode={currentThemeMode}, IsDark={isDarkMode}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating theme: {ex.Message}");
+            // Fallback sicuro
+            currentThemeMode = ThemeMode.Auto;
+            isDarkMode = false;
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        if (!isInitialized) return;
+
+        try
+        {
+            var nextMode = currentThemeMode switch
+            {
+                ThemeMode.Auto => ThemeMode.Light,
+                ThemeMode.Light => ThemeMode.Dark,
+                ThemeMode.Dark => ThemeMode.Auto,
+                _ => ThemeMode.Light
+            };
+
+            Console.WriteLine($"Toggling theme: {currentThemeMode} -> {nextMode}");
+
+            // Il servizio unificato gestisce tutto: cookie, JS, eventi
+            await UnifiedThemeService.SetThemeModeAsync(nextMode);
+
+            // Lo stato si aggiorna automaticamente tramite l'evento
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling theme: {ex.Message}");
+        }
+    }
+
+    private void OnThemeChanged(object? sender, ThemeChangedEventArgs e)
+    {
+        if (isInitialized)
+        {
+            Console.WriteLine($"Theme changed event: Mode={e.Mode}, IsDark={e.IsDarkMode}");
+
+            // Aggiorna lo stato locale
+            currentThemeMode = e.Mode;
+            isDarkMode = e.IsDarkMode;
+
+            // Forza il re-render
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetThemeIcon()
+    {
+        return currentThemeMode switch
+        {
+            ThemeMode.Light => Icons.Material.Filled.LightMode,
+            ThemeMode.Dark => Icons.Material.Filled.DarkMode,
+            ThemeMode.Auto => Icons.Material.Filled.AutoMode,
+            _ => Icons.Material.Filled.AutoMode
+        };
+    }
+
+    private string GetThemeTooltip()
+    {
+        return currentThemeMode switch
+        {
+            ThemeMode.Light => "Tema chiaro (clicca per scuro)",
+            ThemeMode.Dark => "Tema scuro (clicca per auto)",
+            ThemeMode.Auto => "Tema automatico (clicca per chiaro)",
+            _ => "Cambia Tema"
+        };
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        if (UnifiedThemeService != null)
+        {
+            UnifiedThemeService.ThemeChanged -= OnThemeChanged;
+        }
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
 }
-
-
