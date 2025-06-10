@@ -1,0 +1,16 @@
+<table width="100%" style="background-color: #3b82f6; color: white; padding: 20px;">
+    <tr>
+        <td align="center">
+            <h1 style="margin: 0; font-size: 24px;">@Title</h1>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <p style="margin: 0; font-size: 14px;">@Subtitle</p>
+            }
+        </td>
+    </tr>
+</table>
+
+@code {
+    [Parameter] public string Title { get; set; } = "PadelMatcher";
+    [Parameter] public string? Subtitle { get; set; }
+}

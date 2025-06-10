@@ -1,0 +1,14 @@
+<table align="center" cellpadding="0" cellspacing="0" style="margin: 20px auto;">
+    <tr>
+        <td align="center" bgcolor="#3b82f6" style="border-radius: 4px;">
+            <a href="@Href" style="display: inline-block; padding: 12px 24px; color: white; text-decoration: none; font-weight: bold; font-size: 14px;">
+                @Text
+            </a>
+        </td>
+    </tr>
+</table>
+
+@code {
+    [Parameter] public string Href { get; set; } = "#";
+    [Parameter] public string Text { get; set; } = "Clicca qui";
+}

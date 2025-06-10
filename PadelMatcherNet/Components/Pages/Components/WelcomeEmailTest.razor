@@ -1,0 +1,53 @@
+@using PadelMatcherNet.Components
+@using PadelMatcherNet.Data
+@using Microsoft.AspNetCore.Identity
+
+@inject IEmailService EmailService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<MudButton class="btn btn-primary" @onclick="SendWelcomeEmail">
+    📩 Invia Welcome Email
+</MudButton>
+
+@if (message is not null)
+{
+    <p class="mt-2 text-success">@message</p>
+}
+
+@code {
+    private string? message;
+
+    private async Task SendWelcomeEmail()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated != true)
+        {
+            message = "⚠️ Devi essere autenticato per inviare l'email.";
+            return;
+        }
+
+        var identityUser = await UserManager.GetUserAsync(user);
+
+        if (identityUser is null)
+        {
+            message = "❌ Errore utente non trovato.";
+            return;
+        }
+
+        if (!await UserManager.IsEmailConfirmedAsync(identityUser))
+        {
+            message = "⚠️ L'indirizzo email non è ancora stato confermato.";
+            return;
+        }
+
+        await EmailService.SendWelcomeEmailAsync(
+            identityUser.Email!,
+            identityUser.UserName ?? identityUser.Email!
+        );
+
+        message = "✅ Email di benvenuto inviata con successo.";
+    }
+}

@@ -1,0 +1,11 @@
+<table width="100%" style="padding: 30px; font-size: 16px; color: #111827;">
+    <tr>
+        <td>
+            @ChildContent
+        </td>
+    </tr>
+</table>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

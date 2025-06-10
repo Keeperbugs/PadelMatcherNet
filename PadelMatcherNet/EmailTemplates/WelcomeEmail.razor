@@ -1,0 +1,20 @@
+@using PadelMatcherNet.EmailTemplates.Components
+@layout EmailLayout
+
+<EmailHeader Title="Benvenuto!" Subtitle="Crea web app senza mal di testa." />
+
+<EmailMessage>
+    <p>Ciao <strong>@Name</strong>,</p>
+    <p>Grazie per esserti registrato su <strong>BlazorX</strong>. Crea i tuoi progetti web dinamici usando solo linguaggio, C#! </p>
+
+    <EmailButton Href="https://www.blazorx.com" Text="Inizia subito" />
+
+    <p>Se hai bisogno di aiuto, puoi rispondere direttamente a questa email.</p>
+    <p>A presto!<br /><em>Il team di BlazorX</em></p>
+</EmailMessage>
+
+<EmailFooter />
+
+@code {
+    [Parameter] public string Name { get; set; } = "Giocatore";
+}

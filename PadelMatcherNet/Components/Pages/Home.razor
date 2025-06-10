@@ -1,5 +1,9 @@
 ﻿@page "/"
 
+@using PadelMatcherNet.Components.Pages.Components
+
+@inject ILogger<Home> Logger
+
 <PageTitle>Home</PageTitle>
 
 <MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
@@ -57,3 +61,20 @@
         More details
     </MudLink>
 </MudText>
+
+<AuthorizeView>
+<MudButton @onclick="DoLog">Log Test</MudButton>
+<br>
+<WelcomeEmailTest />
+</AuthorizeView>
+
+@code {
+    void DoLog()
+    {
+        Logger.LogDebug("Debug log come Laravel");
+        Logger.LogInformation("Info log come Laravel");
+        Logger.LogWarning("Warning log come Laravel");
+        Logger.LogError("Errore importante");
+        Logger.LogCritical("Errore critico come emergency!");
+    }
+}
