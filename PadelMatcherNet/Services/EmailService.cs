@@ -25,7 +25,7 @@ public class EmailService : IEmailService
     {
         await SendEmailAsync<WelcomeEmail>(
             toEmail, 
-            "Benvenuto nel framework Blazor!", 
+            "Benvenuto in PadelMatcher.net!", 
             new Dictionary<string, object?> { ["Name"] = name },
             "Invio email fallito");
     }
@@ -42,20 +42,6 @@ public class EmailService : IEmailService
             },
             "Invio email conferma account fallito");
     }
-    
-    public async Task SendConfirmationLinkAsync(string toEmail, string name, string confirmationLink)
-    {
-        await SendEmailAsync<ConfirmationEmail>(
-            toEmail, 
-            "Nuovo link di conferma account", 
-            new Dictionary<string, object?> 
-            { 
-                ["Name"] = name,
-                ["ConfirmationLink"] = confirmationLink
-            },
-            "Invio nuovo link di conferma account fallito");
-    }
-    
 
     public async Task SendPasswordResetLinkAsync(ApplicationUser user, string toEmail, string resetLink)
     {
