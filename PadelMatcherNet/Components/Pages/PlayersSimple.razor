@@ -3,6 +3,8 @@
 @using PadelMatcherNet.Services
 @inject IPlayerService PlayerService
 
+@attribute [Authorize]
+
 <PageTitle>Players Simple</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">

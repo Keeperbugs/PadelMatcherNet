@@ -1,8 +1,8 @@
 @page "/database-explorer"
-@using Microsoft.EntityFrameworkCore
-@using PadelMatcherNet.Data
-@using System.Data
+
 @inject TournamentDbContext DbContext
+
+@attribute [Authorize]
 
 <PageTitle>Database Explorer</PageTitle>
 

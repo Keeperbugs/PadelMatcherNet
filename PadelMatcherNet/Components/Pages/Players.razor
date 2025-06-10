@@ -5,6 +5,8 @@
 @inject IPlayerService PlayerService
 @inject ITournamentService TournamentService
 
+@attribute [Authorize]
+
 <PageTitle>Gestione Giocatori</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
