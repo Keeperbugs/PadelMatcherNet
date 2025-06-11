@@ -26,7 +26,16 @@ namespace PadelMatcherNet.Models
         SkillB,
 
         [Display(Name = "Misto")]
-        Mixed
+        Mixed,
+
+        [Display(Name = "Stesso Livello")]
+        SameLevel,
+
+        [Display(Name = "Casuale")]
+        Random,
+
+        [Display(Name = "Sistema Svizzero")]
+        SwissSystem
     }
 
     public enum MatchFormat
@@ -35,7 +44,10 @@ namespace PadelMatcherNet.Models
         BestOfThree,
 
         [Display(Name = "Golden Point")]
-        GoldenPoint
+        GoldenPoint,
+
+        [Display(Name = "Set Illimitato")]
+        UnlimitedSet
     }
 
     public enum MatchStatus
@@ -47,7 +59,10 @@ namespace PadelMatcherNet.Models
         InProgress,
 
         [Display(Name = "Completato")]
-        Completed
+        Completed,
+
+        [Display(Name = "Pareggio")]
+        Draw
     }
 
     public enum TournamentStatus

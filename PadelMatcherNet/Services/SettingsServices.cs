@@ -39,6 +39,8 @@ namespace PadelMatcherNet.Services
                     PointsWin = 3,
                     PointsTieBreakLoss = 1,
                     PointsLoss = 0,
+                    PointsDraw = 1,
+                    AllowDrawsInUnlimitedSet = true,
                     UpdatedAt = DateTime.UtcNow
                 };
 
@@ -69,6 +71,8 @@ namespace PadelMatcherNet.Services
                 existingSettings.PointsWin = settings.PointsWin;
                 existingSettings.PointsTieBreakLoss = settings.PointsTieBreakLoss;
                 existingSettings.PointsLoss = settings.PointsLoss;
+                existingSettings.PointsDraw = settings.PointsDraw;
+                existingSettings.AllowDrawsInUnlimitedSet = settings.AllowDrawsInUnlimitedSet;
                 existingSettings.CurrentTournamentId = settings.CurrentTournamentId;
                 existingSettings.UpdatedAt = DateTime.UtcNow;
             }

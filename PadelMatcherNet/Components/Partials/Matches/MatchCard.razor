@@ -1,130 +1,147 @@
 @using PadelMatcherNet.Models
-@using PadelMatcherNet.Components.Partials.Matches
-@using PadelMatcherNet.Services
-@using PadelMatcherNet.Components.Partials
 
-<MudCard>
-    <MudCardHeader>
-        <CardHeaderContent>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <MudText Typo="Typo.h6">
-                    Round @Match.Round
+<MudCard Outlined="true" Class="mb-3">
+    <MudCardContent>
+        <MudGrid Justify="Justify.Center">
+            <!-- Header partita -->
+            <MudItem xs="12" Class="d-flex justify-space-between align-center mb-2">
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@GetMatchFormatIcon(Match.MatchFormat)"
+                             Color="@GetMatchFormatColor(Match.MatchFormat)"
+                             Class="mr-2" />
+                    <MudText Typo="Typo.subtitle1">
+                        Round @Match.Round
+                    </MudText>
                     @if (!string.IsNullOrEmpty(Match.Court))
                     {
-                        <text> • Campo @Match.Court</text>
+                        <MudText Typo="Typo.caption" Class="ml-2 mud-text-secondary">
+                            • @Match.Court
+                        </MudText>
                     }
-                </MudText>
-                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(Match.Status)">
+                </div>
+                <MudChip T="string" Color="@GetStatusColor(Match.Status)"
+                         Size="Size.Small"
+                         Icon="@GetStatusIcon(Match.Status)">
                     @GetStatusText(Match.Status)
                 </MudChip>
-            </div>
-            <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                @GetMatchFormatText(Match.MatchFormat)
-            </MudText>
-        </CardHeaderContent>
-        <CardHeaderActions>
-            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small">
-                <MudMenuItem OnClick="OnEditResults">
-                    <div style="display: flex; align-items: center;">
-                        <MudIcon Icon="@Icons.Material.Filled.EditNote" Class="mr-2" />
-                        @(Match.Status == MatchStatus.Completed ? "Modifica Risultato" : "Inserisci Risultato")
-                    </div>
-                </MudMenuItem>
-                <MudMenuItem OnClick="OnEdit">
-                    <div style="display: flex; align-items: center;">
-                        <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-2" />
-                        Modifica Partita
-                    </div>
-                </MudMenuItem>
-                <MudMenuItem OnClick="OnDelete">
-                    <div style="display: flex; align-items: center;">
-                        <MudIcon Icon="@Icons.Material.Filled.Delete" Class="mr-2" />
-                        Elimina
-                    </div>
-                </MudMenuItem>
-            </MudMenu>
-        </CardHeaderActions>
-    </MudCardHeader>
-    
-    <MudCardContent>
-        <!-- Squadre -->
-        <MudGrid>
-            <MudItem xs="12">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-                    <!-- Team 1 -->
-                    <div style="flex: 1; text-align: center;">
-                        <MudText Typo="Typo.body1" Class="@GetTeamClass(Match.Team1.Id, Match.WinnerTeamId)">
-                            @GetTeamDisplayName(Match.Team1)
-                        </MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                            @GetTeamSkillInfo(Match.Team1)
-                        </MudText>
-                    </div>
-                    
-                    <!-- VS -->
-                    <div style="padding: 0 16px;">
-                        <MudText Typo="Typo.h6" Class="mud-text-secondary">VS</MudText>
-                    </div>
-                    
-                    <!-- Team 2 -->
-                    <div style="flex: 1; text-align: center;">
-                        <MudText Typo="Typo.body1" Class="@GetTeamClass(Match.Team2.Id, Match.WinnerTeamId)">
-                            @GetTeamDisplayName(Match.Team2)
-                        </MudText>
-                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                            @GetTeamSkillInfo(Match.Team2)
-                        </MudText>
-                    </div>
+            </MudItem>
+
+            <!-- Teams -->
+            <MudItem xs="5">
+                <div class="text-center">
+                    <MudText Typo="Typo.body1"
+                             Class="@GetTeamClass(Match.Team1.Id, Match.WinnerTeamId)">
+                        @GetTeamDisplayName(Match.Team1)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @GetTeamSkillInfo(Match.Team1)
+                    </MudText>
                 </div>
             </MudItem>
-            
-            <!-- Punteggio -->
-            @if (Match.Scores.Any())
-            {
-                <MudItem xs="12">
-                    <MudDivider />
-                    <div style="text-align: center; margin-top: 12px;">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2">Punteggio</MudText>
-                        <div style="display: flex; justify-content: center; gap: 16px;">
-                            @foreach (var score in Match.Scores)
-                            {
-                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
-                                    @GetScoreDisplay(score)
-                                </MudChip>
-                            }
-                        </div>
-                    </div>
-                </MudItem>
-            }
-            
-            <!-- Risultato finale -->
-            @if (!string.IsNullOrEmpty(Match.WinnerTeamId))
-            {
-                <MudItem xs="12">
-                    <div style="text-align: center; margin-top: 12px;">
-                        <MudAlert Severity="Severity.Success" Dense="true">
-                            <MudText Typo="Typo.body2">
-                                🏆 Vincitori: @GetWinnerTeamName()
+
+            <!-- Score centrale -->
+            <MudItem xs="2">
+                <div class="text-center">
+                    @if (Match.Status == MatchStatus.Completed || Match.Status == MatchStatus.Draw)
+                    {
+                        @if (Match.MatchFormat == MatchFormat.UnlimitedSet && Match.Status == MatchStatus.Draw)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Balance"
+                                     Color="Color.Info"
+                                     Size="Size.Large" />
+                            <MudText Typo="Typo.caption" Class="mud-info-text">PAREGGIO</MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.h6" Class="@GetWinnerClass(Match.WinnerTeamId)">
+                                @GetScoreDisplay(Match)
                             </MudText>
-                        </MudAlert>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6" Class="mud-text-secondary">VS</MudText>
+                    }
+                </div>
+            </MudItem>
+
+            <!-- Team 2 -->
+            <MudItem xs="5">
+                <div class="text-center">
+                    <MudText Typo="Typo.body1"
+                             Class="@GetTeamClass(Match.Team2.Id, Match.WinnerTeamId)">
+                        @GetTeamDisplayName(Match.Team2)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @GetTeamSkillInfo(Match.Team2)
+                    </MudText>
+                </div>
+            </MudItem>
+
+            <!-- Dettaglio formato e set -->
+            @if (Match.Status == MatchStatus.Completed || Match.Status == MatchStatus.Draw)
+            {
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <div class="d-flex justify-space-between align-center">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @GetMatchFormatText(Match.MatchFormat)
+                        </MudText>
+                        @if (Match.Scores?.Any() == true)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @GetDetailedScoreDisplay(Match)
+                            </MudText>
+                        }
                     </div>
                 </MudItem>
             }
         </MudGrid>
     </MudCardContent>
-    
-    <MudCardActions>
-        <MudButton Variant="Variant.Text" 
-                  Color="Color.Primary" 
-                  StartIcon="@GetResultButtonIcon()"
-                  OnClick="OnEditResults">
-            @GetResultButtonText()
-        </MudButton>
-    </MudCardActions>
+
+    <!-- Azioni -->
+    @if (ShowActions)
+    {
+        <MudCardActions Class="d-flex justify-end">
+            @if (Match.Status == MatchStatus.Pending || Match.Status == MatchStatus.InProgress)
+            {
+                <MudButton Size="Size.Small"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="OnEditResults">
+                    Inserisci Risultati
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Size="Size.Small"
+                           Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="OnEditResults">
+                    Modifica Risultati
+                </MudButton>
+            }
+
+            <MudButton Size="Size.Small"
+                       Color="Color.Info"
+                       StartIcon="@Icons.Material.Filled.Settings"
+                       OnClick="OnEdit">
+                Modifica Partita
+            </MudButton>
+
+            <MudButton Size="Size.Small"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.Delete"
+                       OnClick="OnDelete">
+                Elimina
+            </MudButton>
+        </MudCardActions>
+    }
 </MudCard>
 
 @code {
-    [Parameter, EditorRequired] public Match Match { get; set; } = null!;
+    [Parameter] public Match Match { get; set; } = null!;
+    [Parameter] public bool ShowActions { get; set; } = true;
     [Parameter] public EventCallback OnEditResults { get; set; }
     [Parameter] public EventCallback OnEdit { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
@@ -136,7 +153,20 @@
             MatchStatus.Completed => Color.Success,
             MatchStatus.InProgress => Color.Warning,
             MatchStatus.Pending => Color.Default,
+            MatchStatus.Draw => Color.Info,
             _ => Color.Default
+        };
+    }
+
+    private string GetStatusIcon(MatchStatus status)
+    {
+        return status switch
+        {
+            MatchStatus.Completed => Icons.Material.Filled.CheckCircle,
+            MatchStatus.InProgress => Icons.Material.Filled.PlayCircle,
+            MatchStatus.Pending => Icons.Material.Filled.Schedule,
+            MatchStatus.Draw => Icons.Material.Filled.Balance,
+            _ => Icons.Material.Filled.Help
         };
     }
 
@@ -147,7 +177,30 @@
             MatchStatus.Completed => "Completata",
             MatchStatus.InProgress => "In Corso",
             MatchStatus.Pending => "In Attesa",
+            MatchStatus.Draw => "Pareggio",
             _ => "Sconosciuto"
+        };
+    }
+
+    private string GetMatchFormatIcon(MatchFormat format)
+    {
+        return format switch
+        {
+            MatchFormat.BestOfThree => Icons.Material.Filled.Filter3,
+            MatchFormat.GoldenPoint => Icons.Material.Filled.Bolt,
+            MatchFormat.UnlimitedSet => Icons.Material.Filled.AllInclusive,
+            _ => Icons.Material.Filled.Sports
+        };
+    }
+
+    private Color GetMatchFormatColor(MatchFormat format)
+    {
+        return format switch
+        {
+            MatchFormat.BestOfThree => Color.Primary,
+            MatchFormat.GoldenPoint => Color.Warning,
+            MatchFormat.UnlimitedSet => Color.Success,
+            _ => Color.Default
         };
     }
 
@@ -157,6 +210,7 @@
         {
             MatchFormat.BestOfThree => "Al meglio di 3 set",
             MatchFormat.GoldenPoint => "Golden Point",
+            MatchFormat.UnlimitedSet => "Set Illimitato",
             _ => "Formato sconosciuto"
         };
     }
@@ -165,7 +219,12 @@
     {
         var player1Name = team.Player1.Nickname ?? team.Player1.Name;
         var player2Name = team.Player2.Nickname ?? team.Player2.Name;
-        return $"{player1Name} / {player2Name}";
+
+        // Usa iniziali per risparmiare spazio
+        var player1Initial = player1Name.Substring(0, 1);
+        var player2Initial = player2Name.Substring(0, 1);
+
+        return $"{player1Initial}.{player2Initial}";
     }
 
     private string GetTeamSkillInfo(Team team)
@@ -186,53 +245,71 @@
 
     private string GetTeamClass(string teamId, string? winnerTeamId)
     {
-        if (!string.IsNullOrEmpty(winnerTeamId) && teamId == winnerTeamId)
-        {
-            return "font-weight-bold mud-success-text";
-        }
-        return "";
+        if (winnerTeamId == teamId)
+            return "mud-success-text font-weight-bold";
+
+        return string.Empty;
     }
 
-    private string GetScoreDisplay(MatchSetScore score)
+    private string GetWinnerClass(string? winnerTeamId)
     {
-        if (score.Team1Score?.ToString() == "GP" || score.Team2Score?.ToString() == "GP")
+        return !string.IsNullOrEmpty(winnerTeamId) ? "mud-success-text" : "mud-text-secondary";
+    }
+
+    private string GetScoreDisplay(Match match)
+    {
+        if (match.MatchFormat == MatchFormat.GoldenPoint)
         {
             return "GP";
         }
-        return $"{score.Team1Score}-{score.Team2Score}";
-    }
 
-    private string GetWinnerTeamName()
-    {
-        if (string.IsNullOrEmpty(Match.WinnerTeamId)) return "";
-        
-        if (Match.WinnerTeamId == Match.Team1.Id)
-            return GetTeamDisplayName(Match.Team1);
-        else if (Match.WinnerTeamId == Match.Team2.Id)
-            return GetTeamDisplayName(Match.Team2);
-        
-        return "Sconosciuto";
-    }
-
-    private string GetResultButtonText()
-    {
-        return Match.Status switch
+        if (match.MatchFormat == MatchFormat.BestOfThree)
         {
-            MatchStatus.Completed => "Modifica Risultato",
-            MatchStatus.InProgress => "Aggiorna Risultato",
-            MatchStatus.Pending => "Inserisci Risultato",
-            _ => "Risultato"
-        };
+            var team1Sets = 0;
+            var team2Sets = 0;
+
+            foreach (var score in match.Scores)
+            {
+                if (int.TryParse(score.Team1Score?.ToString(), out int team1Score) &&
+                    int.TryParse(score.Team2Score?.ToString(), out int team2Score))
+                {
+                    if (team1Score > team2Score) team1Sets++;
+                    else if (team2Score > team1Score) team2Sets++;
+                }
+            }
+
+            return $"{team1Sets}-{team2Sets}";
+        }
+
+        if (match.MatchFormat == MatchFormat.UnlimitedSet && match.Scores.Any())
+        {
+            var score = match.Scores.First();
+            return $"{score.Team1Score}-{score.Team2Score}";
+        }
+
+        return "-";
     }
 
-    private string GetResultButtonIcon()
+    private string GetDetailedScoreDisplay(Match match)
     {
-        return Match.Status switch
+        if (match.MatchFormat == MatchFormat.GoldenPoint)
         {
-            MatchStatus.Completed => Icons.Material.Filled.Edit,
-            MatchStatus.InProgress => Icons.Material.Filled.Update,
-            MatchStatus.Pending => Icons.Material.Filled.Add,
-            _ => Icons.Material.Filled.EditNote
-        };
+            return "Golden Point";
+        }
+
+        if (match.MatchFormat == MatchFormat.UnlimitedSet)
+        {
+            if (match.Status == MatchStatus.Draw)
+            {
+                var score = match.Scores.FirstOrDefault();
+                return score != null ? $"Pareggio {score.Team1Score}-{score.Team2Score}" : "Pareggio";
+            }
+        }
+
+        var setScores = match.Scores
+            .Select(s => $"{s.Team1Score}-{s.Team2Score}")
+            .ToList();
+
+        return setScores.Any() ? string.Join(", ", setScores) : "";
     }
 }

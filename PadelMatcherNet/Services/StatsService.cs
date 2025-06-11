@@ -28,10 +28,11 @@ namespace PadelMatcherNet.Services
         public async Task CalculatePlayerStatsAsync(string tournamentId)
         {
             var settings = await _settingsService.GetSettingsAsync();
-            
-            // Ottieni tutte le partite completate del torneo
+
+            // Ottieni tutte le partite completate del torneo (inclusi pareggi)
             var completedMatches = await _context.Matches
-                .Where(m => m.TournamentId == tournamentId && m.Status == MatchStatus.Completed && !string.IsNullOrEmpty(m.WinnerTeamId))
+                .Where(m => m.TournamentId == tournamentId &&
+                           (m.Status == MatchStatus.Completed || m.Status == MatchStatus.Draw))
                 .ToListAsync();
 
             // Ottieni tutti i giocatori del torneo
@@ -52,6 +53,8 @@ namespace PadelMatcherNet.Services
                     TournamentId = tournamentId,
                     MatchesPlayed = 0,
                     MatchesWon = 0,
+                    MatchesDrawn = 0,
+                    MatchesLost = 0,
                     SetsWon = 0,
                     SetsLost = 0,
                     GamesWon = 0,
@@ -69,89 +72,110 @@ namespace PadelMatcherNet.Services
                 var team2PlayerIds = new[] { match.Team2.Player1.Id, match.Team2.Player2.Id };
                 var allPlayerIds = team1PlayerIds.Concat(team2PlayerIds);
 
-                int team1SetsWon = 0, team2SetsWon = 0;
-                int team1GamesWon = 0, team2GamesWon = 0;
+                // Determina il risultato della partita
+                bool isWin = match.Status == MatchStatus.Completed && !string.IsNullOrEmpty(match.WinnerTeamId);
+                bool isDraw = match.Status == MatchStatus.Draw;
 
-                if (match.MatchFormat == MatchFormat.GoldenPoint)
+                int team1SetsWon = 0, team2SetsWon = 0;
+
+                // Calcola set vinti per ogni team
+                if (match.MatchFormat == MatchFormat.BestOfThree)
                 {
-                    // Per il Golden Point, conta come un set vinto
-                    if (match.WinnerTeamId == match.Team1.Id)
+                    foreach (var score in match.Scores)
                     {
-                        team1SetsWon = 1;
-                        team2SetsWon = 0;
-                    }
-                    else
-                    {
-                        team1SetsWon = 0;
-                        team2SetsWon = 1;
+                        if (int.TryParse(score.Team1Score?.ToString(), out int team1Score) &&
+                            int.TryParse(score.Team2Score?.ToString(), out int team2Score))
+                        {
+                            if (team1Score > team2Score) team1SetsWon++;
+                            else if (team2Score > team1Score) team2SetsWon++;
+                        }
                     }
                 }
-                else
+                else if (match.MatchFormat == MatchFormat.UnlimitedSet)
                 {
-                    // Per il Best of Three, conta i set e i game
-                    foreach (var set in match.Scores)
+                    var score = match.Scores.FirstOrDefault();
+                    if (score != null &&
+                        int.TryParse(score.Team1Score?.ToString(), out int team1Score) &&
+                        int.TryParse(score.Team2Score?.ToString(), out int team2Score))
                     {
-                        if (int.TryParse(set.Team1Score?.ToString(), out int t1Score) && 
-                            int.TryParse(set.Team2Score?.ToString(), out int t2Score))
-                        {
-                            if (t1Score > t2Score) team1SetsWon++;
-                            else if (t2Score > t1Score) team2SetsWon++;
-
-                            team1GamesWon += t1Score;
-                            team2GamesWon += t2Score;
-                        }
+                        if (team1Score > team2Score) team1SetsWon = 1;
+                        else if (team2Score > team1Score) team2SetsWon = 1;
+                        // Se team1Score == team2Score, rimane 0-0 (pareggio)
+                    }
+                }
+                else if (match.MatchFormat == MatchFormat.GoldenPoint)
+                {
+                    // Per Golden Point, il vincitore prende 1 set simbolico
+                    if (!isDraw && !string.IsNullOrEmpty(match.WinnerTeamId))
+                    {
+                        if (match.WinnerTeamId == match.Team1.Id) team1SetsWon = 1;
+                        else team2SetsWon = 1;
                     }
                 }
 
                 // Aggiorna le statistiche per ogni giocatore
                 foreach (var playerId in allPlayerIds)
                 {
-                    if (!playerStatsDict.ContainsKey(playerId)) continue;
-
-                    var stats = playerStatsDict[playerId];
-                    stats.MatchesPlayed += 1;
-
-                    bool isTeam1Player = team1PlayerIds.Contains(playerId);
-                    bool isWinner = isTeam1Player ? match.WinnerTeamId == match.Team1.Id : match.WinnerTeamId == match.Team2.Id;
-
-                    if (isWinner)
+                    if (playerStatsDict.TryGetValue(playerId, out var stats))
                     {
-                        stats.MatchesWon += 1;
-                        stats.Points += settings.PointsWin;
-                    }
-                    else
-                    {
-                        // Determina se è stata una sconfitta al tie-break
-                        if (match.MatchFormat == MatchFormat.BestOfThree)
+                        var isTeam1Player = team1PlayerIds.Contains(playerId);
+
+                        // Incrementa partite giocate
+                        stats.MatchesPlayed++;
+
+                        // Aggiorna set vinti/persi
+                        if (isTeam1Player)
                         {
-                            int teamSetsWon = isTeam1Player ? team1SetsWon : team2SetsWon;
-                            int teamSetsLost = isTeam1Player ? team2SetsWon : team1SetsWon;
-
-                            if (teamSetsWon == 1 && teamSetsLost == 2)
-                            {
-                                stats.Points += settings.PointsTieBreakLoss;
-                            }
-                            else
-                            {
-                                stats.Points += settings.PointsLoss;
-                            }
+                            stats.SetsWon += team1SetsWon;
+                            stats.SetsLost += team2SetsWon;
                         }
                         else
                         {
-                            // Aggiorna i set vinti e persi
-                            if (isTeam1Player)
+                            stats.SetsWon += team2SetsWon;
+                            stats.SetsLost += team1SetsWon;
+                        }
+
+                        // Determina e assegna punti in base al risultato
+                        if (isDraw)
+                        {
+                            // Pareggio
+                            stats.MatchesDrawn++;
+                            stats.Points += settings.PointsDraw;
+                        }
+                        else if (isWin)
+                        {
+                            var isWinner = match.WinnerTeamId == (isTeam1Player ? match.Team1.Id : match.Team2.Id);
+
+                            if (isWinner)
                             {
-                                stats.SetsWon += team1SetsWon;
-                                stats.SetsLost += team2SetsWon;
-                                stats.GamesWon += team1GamesWon;
-                                stats.GamesLost += team2GamesWon;
+                                // Vittoria
+                                stats.MatchesWon++;
+                                stats.Points += settings.PointsWin;
                             }
                             else
                             {
-                                stats.SetsWon += team2SetsWon;
-                                stats.SetsLost += team1SetsWon;
-                                stats.GamesWon += team2GamesWon;
-                                stats.GamesLost += team1GamesWon;
+                                // Sconfitta
+                                stats.MatchesLost++;
+
+                                // Verifica se è una sconfitta al tie-break (solo per BestOfThree)
+                                if (match.MatchFormat == MatchFormat.BestOfThree)
+                                {
+                                    int teamSetsWon = isTeam1Player ? team1SetsWon : team2SetsWon;
+                                    int teamSetsLost = isTeam1Player ? team2SetsWon : team1SetsWon;
+
+                                    if (teamSetsWon == 1 && teamSetsLost == 2)
+                                    {
+                                        stats.Points += settings.PointsTieBreakLoss;
+                                    }
+                                    else
+                                    {
+                                        stats.Points += settings.PointsLoss;
+                                    }
+                                }
+                                else
+                                {
+                                    stats.Points += settings.PointsLoss;
+                                }
                             }
                         }
                     }
@@ -172,6 +196,8 @@ namespace PadelMatcherNet.Services
                 {
                     existingStats.MatchesPlayed = playerStats.MatchesPlayed;
                     existingStats.MatchesWon = playerStats.MatchesWon;
+                    existingStats.MatchesDrawn = playerStats.MatchesDrawn;
+                    existingStats.MatchesLost = playerStats.MatchesLost;
                     existingStats.SetsWon = playerStats.SetsWon;
                     existingStats.SetsLost = playerStats.SetsLost;
                     existingStats.GamesWon = playerStats.GamesWon;
@@ -193,7 +219,7 @@ namespace PadelMatcherNet.Services
         public async Task CalculateAllPlayerStatsAsync()
         {
             var tournaments = await _context.Tournaments.ToListAsync();
-            
+
             foreach (var tournament in tournaments)
             {
                 await CalculatePlayerStatsAsync(tournament.Id);
@@ -214,27 +240,34 @@ namespace PadelMatcherNet.Services
 
         public async Task<List<PlayerStats>> GetOverallPlayerStatsAsync()
         {
-            return await _context.Players
-                .OrderByDescending(p => p.Points)
-                .ThenByDescending(p => p.MatchesWon)
-                .ThenByDescending(p => p.SetsWon)
-                .ThenBy(p => p.Name)
-                .Select(p => new PlayerStats
+            // Calcola statistiche aggregate per tutti i tornei
+            var allPlayerStats = await _context.PlayerStats
+                .Include(ps => ps.Player)
+                .GroupBy(ps => ps.PlayerId)
+                .Select(g => new PlayerStats
                 {
-                    Id = p.Id,
-                    PlayerId = p.Id,
+                    Id = g.Key,
+                    PlayerId = g.Key,
                     TournamentId = "overall",
-                    MatchesPlayed = p.MatchesPlayed,
-                    MatchesWon = p.MatchesWon,
-                    SetsWon = p.SetsWon,
-                    SetsLost = p.SetsLost,
-                    GamesWon = p.GamesWon,
-                    GamesLost = p.GamesLost,
-                    Points = p.Points,
-                    Player = p,
-                    CreatedAt = p.CreatedAt
+                    MatchesPlayed = g.Sum(ps => ps.MatchesPlayed),
+                    MatchesWon = g.Sum(ps => ps.MatchesWon),
+                    MatchesDrawn = g.Sum(ps => ps.MatchesDrawn),
+                    MatchesLost = g.Sum(ps => ps.MatchesLost),
+                    SetsWon = g.Sum(ps => ps.SetsWon),
+                    SetsLost = g.Sum(ps => ps.SetsLost),
+                    GamesWon = g.Sum(ps => ps.GamesWon),
+                    GamesLost = g.Sum(ps => ps.GamesLost),
+                    Points = g.Sum(ps => ps.Points),
+                    Player = g.First().Player,
+                    UpdatedAt = DateTime.UtcNow
                 })
+                .OrderByDescending(ps => ps.Points)
+                .ThenByDescending(ps => ps.MatchesWon)
+                .ThenByDescending(ps => ps.SetsWon)
+                .ThenBy(ps => ps.Player.Name)
                 .ToListAsync();
+
+            return allPlayerStats;
         }
 
         public async Task<PlayerStats?> GetPlayerTournamentStatsAsync(string playerId, string tournamentId)

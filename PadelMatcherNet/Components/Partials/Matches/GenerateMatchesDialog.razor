@@ -1,25 +1,357 @@
-@using PadelMatcherNet.Models
+﻿@using PadelMatcherNet.Models
 @using PadelMatcherNet.Components.Partials.Matches
 @using PadelMatcherNet.Services
 @using PadelMatcherNet.Components.Partials
 
 <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
-    <MudPaper Class="pa-6" Style="max-width: 600px; margin: 50px auto;">
-        <!-- Contenuto del dialog semplificato -->
-        <div class="d-flex justify-end mt-4">
-            <MudButton OnClick="OnCancel" Class="mr-2">Annulla</MudButton>
-            <MudButton OnClick="HandleGenerate" Variant="Variant.Filled" Color="Color.Primary">
-                Genera Partite
-            </MudButton>
-        </div>
+    <MudPaper Class="pa-6" Style="max-width: 700px; margin: 50px auto;">
+        <MudGrid>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h5" Class="mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.GeneratingTokens" Class="mr-2" />
+                    Genera Nuove Partite
+                </MudText>
+            </MudItem>
+
+            @if (Tournament != null)
+            {
+                <!-- Info Torneo -->
+                <MudItem xs="12">
+                    <MudAlert Severity="Severity.Info" Class="mb-4">
+                        <MudText><strong>Torneo:</strong> @Tournament.Name</MudText>
+                        <MudText><strong>Round corrente:</strong> @Tournament.CurrentRound</MudText>
+                        <MudText><strong>Giocatori iscritti:</strong> @(Players?.Count ?? 0)</MudText>
+                        @if (Tournament.CurrentRound > 1)
+                        {
+                            <MudText><strong>Partite precedenti:</strong> @estimatedPreviousMatches</MudText>
+                        }
+                    </MudAlert>
+                </MudItem>
+
+                <MudForm @ref="form" @bind-IsValid="isFormValid">
+                    <!-- Strategia di Abbinamento -->
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.h6" Class="mb-3">Strategia di Abbinamento</MudText>
+                        <MudRadioGroup @bind-Value="selectedPairingStrategy" T="PairingStrategy">
+                            <MudRadio Value="PairingStrategy.BalancedAB" T="PairingStrategy">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">🎯 Abbinamento Bilanciato A+B</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Ogni team ha un giocatore fascia A e uno fascia B per partite equilibrate
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                            <MudRadio Value="PairingStrategy.SameLevel" T="PairingStrategy">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">⚖️ Stesso Livello</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Abbina giocatori dello stesso livello (A+A vs B+B)
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                            <MudRadio Value="PairingStrategy.Random" T="PairingStrategy">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">🎲 Casuale</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Abbinamenti completamente casuali senza considerare il livello
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                            <MudRadio Value="PairingStrategy.SwissSystem" T="PairingStrategy">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">🏆 Sistema Svizzero</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Abbina giocatori con punteggi simili (consigliato per tornei competitivi)
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                        </MudRadioGroup>
+                    </MudItem>
+
+                    <!-- Formato Partita -->
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" Class="mb-3">Formato Partita</MudText>
+                        <MudRadioGroup @bind-Value="selectedMatchFormat" T="MatchFormat">
+                            <MudRadio Value="MatchFormat.BestOfThree" T="MatchFormat">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">🎾 Best of 3 Set</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Formato standard: vince chi conquista 2 set (es. 6-4, 6-3)
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                            <MudRadio Value="MatchFormat.GoldenPoint" T="MatchFormat">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">⚡ Golden Point</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Formato veloce: un solo punto decisivo determina il vincitore
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                            <MudRadio Value="MatchFormat.UnlimitedSet" T="MatchFormat">
+                                <div class="pa-2">
+                                    <MudText Typo="Typo.subtitle1">♾️ Set Illimitato</MudText>
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                        Un singolo set senza limite di tempo, possibilità di pareggio
+                                    </MudText>
+                                </div>
+                            </MudRadio>
+                        </MudRadioGroup>
+                    </MudItem>
+
+                    <!-- Opzioni Avanzate -->
+                    <MudItem xs="12" Class="mt-4">
+                        <MudExpansionPanels MultiExpansion="false">
+                            <MudExpansionPanel>
+                                <TitleContent>
+                                    <div style="display: flex; align-items: center">
+                                        <MudIcon Icon="@Icons.Material.Filled.Settings" class="mr-3"></MudIcon>
+                                        <MudText>Opzioni Avanzate</MudText>
+                                    </div>
+                                </TitleContent>
+                                <ChildContent>
+                                    <MudGrid>
+                                        <MudItem xs="6">
+                                            <MudTextField @bind-Value="courtPrefix"
+                                                          Label="Prefisso Campo"
+                                                          Placeholder="Campo"
+                                                          Variant="Variant.Outlined"
+                                                          Margin="Margin.Dense"
+                                                          HelperText="Es. 'Campo', 'Court', 'Pista'" />
+                                        </MudItem>
+                                        <MudItem xs="6">
+                                            <MudNumericField @bind-Value="startingCourtNumber"
+                                                             Label="Numero Campo Iniziale"
+                                                             Min="1" Max="20"
+                                                             Variant="Variant.Outlined"
+                                                             Margin="Margin.Dense"
+                                                             HelperText="Primo numero di campo da assegnare" />
+                                        </MudItem>
+                                        <MudItem xs="12">
+                                            <MudCheckBox @bind-Value="avoidRepeatedPairings"
+                                                         Label="Evita abbinamenti ripetuti"
+                                                         Color="Color.Primary"
+                                                         Dense="true" />
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary ml-8">
+                                                Cerca di non abbinare gli stessi giocatori insieme più volte
+                                            </MudText>
+                                        </MudItem>
+                                        <MudItem xs="12">
+                                            <MudCheckBox @bind-Value="shuffleTeams"
+                                                         Label="Mischia ordine partite"
+                                                         Color="Color.Primary"
+                                                         Dense="true" />
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary ml-8">
+                                                Randomizza l'ordine delle partite generate
+                                            </MudText>
+                                        </MudItem>
+                                    </MudGrid>
+                                </ChildContent>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    </MudItem>
+
+                    <!-- Anteprima Generazione -->
+                    <MudItem xs="12" Class="mt-4">
+                        @if (CanPreviewGeneration())
+                        {
+                            <MudAlert Severity="Severity.Success" Class="mb-3">
+                                <MudText Typo="Typo.subtitle1">📊 Anteprima Generazione</MudText>
+                                <MudText><strong>Partite da generare:</strong> @estimatedMatches</MudText>
+                                <MudText><strong>Round:</strong> @Tournament.CurrentRound</MudText>
+                                <MudText><strong>Strategia:</strong> @GetPairingStrategyDescription(selectedPairingStrategy)</MudText>
+                                <MudText><strong>Formato:</strong> @GetMatchFormatDescription(selectedMatchFormat)</MudText>
+                                @if (!string.IsNullOrEmpty(courtPrefix))
+                                {
+                                    <MudText><strong>Campi:</strong> @courtPrefix @startingCourtNumber - @courtPrefix @(startingCourtNumber + estimatedMatches - 1)</MudText>
+                                }
+                            </MudAlert>
+                        }
+
+                        @if (HasValidationErrors())
+                        {
+                            <MudAlert Severity="Severity.Error" Class="mb-3">
+                                @foreach (var error in validationErrors)
+                                {
+                                    <MudText>• @error</MudText>
+                                }
+                            </MudAlert>
+                        }
+                    </MudItem>
+                </MudForm>
+            }
+
+            <!-- Pulsanti -->
+            <MudItem xs="12" Class="d-flex justify-end mt-4">
+                <MudButton OnClick="OnCancel" 
+                           Variant="Variant.Text" 
+                           Class="mr-2">
+                    Annulla
+                </MudButton>
+                <MudButton OnClick="HandleGenerate" 
+                           Variant="Variant.Filled" 
+                           Color="Color.Primary"
+                           Disabled="@(!CanGenerate())"
+                           StartIcon="@Icons.Material.Filled.PlayArrow">
+                    Genera @estimatedMatches Partite
+                </MudButton>
+            </MudItem>
+        </MudGrid>
     </MudPaper>
 </MudOverlay>
 
 @code {
     [Parameter] public Tournament? Tournament { get; set; }
     [Parameter] public List<Player>? Players { get; set; }
-    [Parameter]public EventCallback<(PairingStrategy Strategy, MatchFormat Format)> OnGenerate { get; set; }
+    [Parameter] public EventCallback<(PairingStrategy Strategy, MatchFormat Format)> OnGenerate { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
 
-    private void HandleGenerate() => OnGenerate.InvokeAsync();
+    private MudForm form = null!;
+    private bool isFormValid = false;
+    
+    // Impostazioni di base
+    private PairingStrategy selectedPairingStrategy = PairingStrategy.BalancedAB;
+    private MatchFormat selectedMatchFormat = MatchFormat.BestOfThree;
+    
+    // Opzioni avanzate
+    private string courtPrefix = "Campo";
+    private int startingCourtNumber = 1;
+    private bool avoidRepeatedPairings = true;
+    private bool shuffleTeams = false;
+    
+    // Calcoli
+    private int estimatedMatches = 0;
+    private int estimatedPreviousMatches = 0;
+    private List<string> validationErrors = new();
+
+    protected override void OnParametersSet()
+    {
+        CalculateEstimates();
+        ValidateSettings();
+    }
+
+    private void CalculateEstimates()
+    {
+        var playerCount = Players?.Count ?? 0;
+        
+        if (playerCount >= 4)
+        {
+            // Calcola il numero di partite possibili
+            // Con N giocatori, si formano N/2 team, quindi (N/2)/2 = N/4 partite simultane
+            // Ma per un round completo, ogni giocatore dovrebbe giocare una partita
+            estimatedMatches = playerCount / 4;
+            
+            // Se il numero di giocatori non è divisibile per 4, arrotonda per eccesso
+            if (playerCount % 4 != 0)
+            {
+                estimatedMatches = (playerCount + 3) / 4;
+            }
+        }
+        else
+        {
+            estimatedMatches = 0;
+        }
+
+        // Calcola partite precedenti
+        if (Tournament != null && Tournament.CurrentRound > 1)
+        {
+            estimatedPreviousMatches = estimatedMatches * (Tournament.CurrentRound - 1);
+        }
+    }
+
+    private void ValidateSettings()
+    {
+        validationErrors.Clear();
+        
+        var playerCount = Players?.Count ?? 0;
+        
+        if (playerCount < 4)
+        {
+            validationErrors.Add("Servono almeno 4 giocatori per generare partite");
+        }
+        else if (playerCount % 4 != 0)
+        {
+            var extraPlayers = playerCount % 4;
+            validationErrors.Add($"Attenzione: {extraPlayers} giocator{(extraPlayers == 1 ? "e" : "i")} resteranno in panchina questo round");
+        }
+
+        if (selectedPairingStrategy == PairingStrategy.BalancedAB)
+        {
+            var fasciaA = Players?.Count(p => p.SkillLevel == SkillLevel.FasciaA) ?? 0;
+            var fasciaB = Players?.Count(p => p.SkillLevel == SkillLevel.FasciaB) ?? 0;
+            var unassigned = Players?.Count(p => p.SkillLevel == SkillLevel.Unassigned) ?? 0;
+            
+            if (unassigned > 0)
+            {
+                validationErrors.Add($"{unassigned} giocator{(unassigned == 1 ? "e ha" : "i hanno")} livello non assegnato. Assegna i livelli per abbinamenti bilanciati.");
+            }
+            
+            var minPlayers = Math.Min(fasciaA, fasciaB);
+            var maxPossibleBalancedTeams = minPlayers;
+            
+            if (maxPossibleBalancedTeams * 4 < playerCount - unassigned)
+            {
+                validationErrors.Add($"Con {fasciaA} giocatori fascia A e {fasciaB} fascia B si possono formare solo {maxPossibleBalancedTeams} team bilanciati");
+            }
+        }
+
+        if (startingCourtNumber < 1)
+        {
+            validationErrors.Add("Il numero del campo iniziale deve essere maggiore di 0");
+        }
+
+        StateHasChanged();
+    }
+
+    private bool CanPreviewGeneration()
+    {
+        return estimatedMatches > 0 && !HasCriticalErrors();
+    }
+
+    private bool CanGenerate()
+    {
+        return isFormValid && estimatedMatches > 0 && !HasCriticalErrors();
+    }
+
+    private bool HasValidationErrors()
+    {
+        return validationErrors.Any();
+    }
+
+    private bool HasCriticalErrors()
+    {
+        return validationErrors.Any(e => e.Contains("almeno 4 giocatori"));
+    }
+
+    private string GetPairingStrategyDescription(PairingStrategy strategy)
+    {
+        return strategy switch
+        {
+            PairingStrategy.BalancedAB => "Bilanciato A+B",
+            PairingStrategy.SameLevel => "Stesso Livello",
+            PairingStrategy.Random => "Casuale",
+            PairingStrategy.SwissSystem => "Sistema Svizzero",
+            _ => "Sconosciuto"
+        };
+    }
+
+    private string GetMatchFormatDescription(MatchFormat format)
+    {
+        return format switch
+        {
+            MatchFormat.BestOfThree => "Best of 3 Set",
+            MatchFormat.GoldenPoint => "Golden Point",
+            MatchFormat.UnlimitedSet => "Set Illimitato",
+            _ => "Sconosciuto"
+        };
+    }
+
+    private async Task HandleGenerate()
+    {
+        if (!CanGenerate()) return;
+
+        // Qui potresti implementare logica aggiuntiva per le opzioni avanzate
+        // Per ora passiamo solo strategia e formato base
+        await OnGenerate.InvokeAsync((selectedPairingStrategy, selectedMatchFormat));
+    }
 }

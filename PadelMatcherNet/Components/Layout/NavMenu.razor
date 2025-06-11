@@ -10,16 +10,17 @@
             <!-- Sezione Padel App -->
             <MudDivider Class="my-2" />
             <MudText Typo="Typo.caption" Class="px-4 py-2 mud-text-secondary">PADEL TOURNAMENT</MudText>
-    
+
             <MudNavLink Href="players" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">Giocatori</MudNavLink>
             <MudNavLink Href="players-simple" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BugReport">Giocatori (Debug)</MudNavLink>
             <MudNavLink Href="tournaments" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.EmojiEvents">Tornei</MudNavLink>
             <MudNavLink Href="matches" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SportsKabaddi">Partite</MudNavLink>
             <MudNavLink Href="rankings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Leaderboard">Classifiche</MudNavLink>
-    
+
             <!-- Sezione Demo/Test -->
             <MudDivider Class="my-2" />
             <MudText Typo="Typo.caption" Class="px-4 py-2 mud-text-secondary">DEMO & TEST</MudText>
+
             <MudNavLink Href="counter" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">Counter</MudNavLink>
             <MudNavLink Href="weather" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">Weather</MudNavLink>
 
@@ -28,8 +29,15 @@
             <MudNavLink Href="database-explorer" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Search">Database Explorer</MudNavLink>
             <MudNavLink Href="services-test" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Science">Services Test</MudNavLink>
 
+            <!-- 🆕 NUOVO LINK - Test Pareggi e Set Illimitato -->
+            <MudNavLink Href="test-draw-features" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Balance">
+                Test Pareggi & Set Illimitato
+            </MudNavLink>
+
             <!-- Sezione Account -->
+            <MudDivider Class="my-2" />
             <MudText Typo="Typo.caption" Class="px-4 py-2 mud-text-secondary">ACCOUNT</MudText>
+
             <MudNavLink Href="auth" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lock">Auth Required</MudNavLink>
             <MudNavLink Href="Account/Manage" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Person">@context.User.Identity?.Name</MudNavLink>
             <form action="Account/Logout" method="post">

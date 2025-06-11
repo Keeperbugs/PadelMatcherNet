@@ -1,0 +1,310 @@
+﻿@page "/test-draw-features"
+@using PadelMatcherNet.Models
+@using PadelMatcherNet.Services
+@inject ISettingsService SettingsService
+@inject ISnackbar Snackbar
+
+@attribute [Authorize]
+
+<PageTitle>Test Funzionalità Pareggi e Set Illimitato</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">
+        🧪 Test Funzionalità Pareggi e Set Illimitato
+    </MudText>
+
+    <MudGrid>
+        <!-- Sezione Test Enum -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-3">✅ Test Enum Aggiornati</MudText>
+                
+                <MudText Typo="Typo.subtitle2" Class="mb-2">MatchStatus supportati:</MudText>
+                @foreach (MatchStatus status in Enum.GetValues<MatchStatus>())
+                {
+                    <MudChip T="string" Color="@GetStatusColor(status)" Size="Size.Small" Class="ma-1">
+                        @status.ToString()
+                    </MudChip>
+                }
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2 mt-3">MatchFormat supportati:</MudText>
+                @foreach (MatchFormat format in Enum.GetValues<MatchFormat>())
+                {
+                    <MudChip T="string" Color="@GetFormatColor(format)" Size="Size.Small" Class="ma-1">
+                        @format.ToString()
+                    </MudChip>
+                }
+
+                <MudText Typo="Typo.subtitle2" Class="mb-2 mt-3">PairingStrategy supportate:</MudText>
+                @foreach (PairingStrategy strategy in Enum.GetValues<PairingStrategy>())
+                {
+                    <MudChip T="string" Color="Color.Info" Size="Size.Small" Class="ma-1">
+                        @strategy.ToString()
+                    </MudChip>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Sezione Test Impostazioni -->
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-3">⚙️ Test Impostazioni Pareggi</MudText>
+                
+                @if (settings != null)
+                {
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudNumericField @bind-Value="settings.PointsWin"
+                                             Label="Punti Vittoria"
+                                             Variant="Variant.Outlined"
+                                             Min="0" Max="10" />
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudNumericField @bind-Value="settings.PointsDraw"
+                                             Label="Punti Pareggio"
+                                             Variant="Variant.Outlined"
+                                             Min="0" Max="10" />
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudNumericField @bind-Value="settings.PointsTieBreakLoss"
+                                             Label="Punti Sconfitta Tie-Break"
+                                             Variant="Variant.Outlined"
+                                             Min="0" Max="10" />
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudNumericField @bind-Value="settings.PointsLoss"
+                                             Label="Punti Sconfitta"
+                                             Variant="Variant.Outlined"
+                                             Min="0" Max="10" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudCheckBox @bind-Value="settings.AllowDrawsInUnlimitedSet"
+                                         Label="Consenti pareggi nei set illimitati"
+                                         Color="Color.Primary" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudButton OnClick="SaveSettings" 
+                                       Variant="Variant.Filled" 
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Save">
+                                Salva Impostazioni
+                            </MudButton>
+                        </MudItem>
+                    </MudGrid>
+                }
+                else
+                {
+                    <MudProgressCircular Indeterminate="true" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Sezione Simulazione Partite -->
+        <MudItem xs="12">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-3">🎮 Simulazione Scenari Partite</MudText>
+                
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Class="mb-2">🏆 Best of Three</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-3">
+                                    Scenario classico: vince chi conquista 2 set su 3
+                                </MudText>
+                                <MudText Typo="Typo.caption">
+                                    Esempi risultati validi:
+                                </MudText>
+                                <MudText Typo="Typo.caption">• 2-0 (6-4, 6-3)</MudText>
+                                <MudText Typo="Typo.caption">• 2-1 (6-4, 4-6, 6-2)</MudText>
+                                <MudText Typo="Typo.caption">• Tie-break: 2-1 (7-6, 4-6, 6-4)</MudText>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Size="Size.Small" Color="Color.Primary">
+                                    Testa BestOfThree
+                                </MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Class="mb-2">⚡ Golden Point</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-3">
+                                    Formato veloce: un punto determina tutto
+                                </MudText>
+                                <MudText Typo="Typo.caption">
+                                    Caratteristiche:
+                                </MudText>
+                                <MudText Typo="Typo.caption">• Durata molto breve</MudText>
+                                <MudText Typo="Typo.caption">• Tensione massima</MudText>
+                                <MudText Typo="Typo.caption">• Sempre un vincitore</MudText>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Size="Size.Small" Color="Color.Warning">
+                                    Testa GoldenPoint
+                                </MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" md="4">
+                        <MudCard>
+                            <MudCardContent>
+                                <MudText Typo="Typo.h6" Class="mb-2">♾️ Set Illimitato</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-3">
+                                    Novità: set unico con possibilità di pareggio
+                                </MudText>
+                                <MudText Typo="Typo.caption">
+                                    Caratteristiche:
+                                </MudText>
+                                <MudText Typo="Typo.caption">• Un solo set</MudText>
+                                <MudText Typo="Typo.caption">• Punteggio libero</MudText>
+                                <MudText Typo="Typo.caption">• 🆕 Possibilità pareggio!</MudText>
+                            </MudCardContent>
+                            <MudCardActions>
+                                <MudButton Size="Size.Small" Color="Color.Success">
+                                    Testa UnlimitedSet
+                                </MudButton>
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Sezione Test Calcolo Punti -->
+        <MudItem xs="12">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Class="mb-3">🧮 Simulatore Calcolo Punti</MudText>
+                
+                @if (settings != null)
+                {
+                    <MudGrid>
+                        <MudItem xs="12" md="3">
+                            <MudAlert Severity="Severity.Success" Dense="true">
+                                <MudText><strong>Vittoria:</strong> +@settings.PointsWin punti</MudText>
+                            </MudAlert>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudAlert Severity="Severity.Info" Dense="true">
+                                <MudText><strong>Pareggio:</strong> +@settings.PointsDraw punt@(settings.PointsDraw == 1 ? "o" : "i")</MudText>
+                            </MudAlert>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudAlert Severity="Severity.Warning" Dense="true">
+                                <MudText><strong>Sconfitta Tie-Break:</strong> +@settings.PointsTieBreakLoss punt@(settings.PointsTieBreakLoss == 1 ? "o" : "i")</MudText>
+                            </MudAlert>
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudAlert Severity="Severity.Error" Dense="true">
+                                <MudText><strong>Sconfitta:</strong> +@settings.PointsLoss punt@(settings.PointsLoss == 1 ? "o" : "i")</MudText>
+                            </MudAlert>
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle1" Class="mb-3">📈 Esempi Scenari Punteggio</MudText>
+                    <MudSimpleTable Dense="true" Bordered="true">
+                        <thead>
+                            <tr>
+                                <th>Risultato Partita</th>
+                                <th>Giocatore A</th>
+                                <th>Giocatore B</th>
+                                <th>Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>A vince 2-0 (6-4, 6-3)</td>
+                                <td class="mud-success-text">+@settings.PointsWin punti</td>
+                                <td class="mud-error-text">+@settings.PointsLoss punti</td>
+                                <td>Vittoria netta</td>
+                            </tr>
+                            <tr>
+                                <td>A vince 2-1 (6-4, 4-6, 6-2)</td>
+                                <td class="mud-success-text">+@settings.PointsWin punti</td>
+                                <td class="mud-warning-text">+@settings.PointsTieBreakLoss punti</td>
+                                <td>B perde al tie-break</td>
+                            </tr>
+                            <tr>
+                                <td>Pareggio set illimitato (10-10)</td>
+                                <td class="mud-info-text">+@settings.PointsDraw punti</td>
+                                <td class="mud-info-text">+@settings.PointsDraw punti</td>
+                                <td>🆕 Entrambi prendono punti!</td>
+                            </tr>
+                            <tr>
+                                <td>A vince Golden Point</td>
+                                <td class="mud-success-text">+@settings.PointsWin punti</td>
+                                <td class="mud-error-text">+@settings.PointsLoss punti</td>
+                                <td>Formato veloce</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private AppSettings? settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            settings = await SettingsService.GetSettingsAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Errore caricamento impostazioni: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (settings == null) return;
+
+        try
+        {
+            await SettingsService.UpdateSettingsAsync(settings);
+            Snackbar.Add("✅ Impostazioni salvate con successo!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"❌ Errore salvataggio: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(MatchStatus status)
+    {
+        return status switch
+        {
+            MatchStatus.Completed => Color.Success,
+            MatchStatus.InProgress => Color.Warning,
+            MatchStatus.Pending => Color.Default,
+            MatchStatus.Draw => Color.Info,
+            _ => Color.Default
+        };
+    }
+
+    private Color GetFormatColor(MatchFormat format)
+    {
+        return format switch
+        {
+            MatchFormat.BestOfThree => Color.Primary,
+            MatchFormat.GoldenPoint => Color.Warning,
+            MatchFormat.UnlimitedSet => Color.Success,
+            _ => Color.Default
+        };
+    }
+}
